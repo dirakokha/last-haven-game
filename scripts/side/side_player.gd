@@ -11,6 +11,7 @@ const MAX_HEALTH := 100
 const DAMAGE_IMMUNITY := 0.7
 var vitals: CharacterVitals
 var _immune_left := 0.0
+var _reserve: Dictionary[StringName, int] = {}
 
 @export var walk_speed := 178.0
 @export var run_speed := 285.0
@@ -34,6 +35,23 @@ var landing_step := false
 
 func _init(spawn_health: int = MAX_HEALTH) -> void:
 	vitals = CharacterVitals.new(MAX_HEALTH, spawn_health)
+
+## Reserve stock keyed by ammo type; the firearm controller needs count and take only.
+func reserve_for(ammo_id: StringName) -> int:
+	return _reserve.get(ammo_id, 0)
+
+func add_reserve(ammo_id: StringName, rounds: int) -> void:
+	if ammo_id != &"" and rounds > 0:
+		# Saturate rather than overflow if fed a very large count.
+		var current := reserve_for(ammo_id)
+		_reserve[ammo_id] = current + mini(rounds, 9223372036854775807 - current)
+
+func take_reserve(ammo_id: StringName, rounds: int) -> int:
+	var current := reserve_for(ammo_id)
+	var taken := clampi(rounds, 0, current)
+	if taken > 0:
+		_reserve[ammo_id] = current - taken
+	return taken
 
 func _process(delta: float) -> void:
 	_immune_left = maxf(0.0, _immune_left - delta)

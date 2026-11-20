@@ -6,11 +6,16 @@ const TARGET_MASK := 1 | 4
 var direction := 1:
 	set(value):
 		direction = -1 if value < 0 else 1
-var speed := 1840.0
-var distance_left := 730.0
-var damage := 24
+var speed: float
+var distance_left: float
+var damage: int
 var shooter: RID
 var traveled := 0.0
+
+func _init(shot_speed: float, shot_range: float, shot_damage: int) -> void:
+	speed = shot_speed
+	distance_left = shot_range
+	damage = shot_damage
 
 func _physics_process(delta: float) -> void:
 	var distance := minf(distance_left, speed * delta)
