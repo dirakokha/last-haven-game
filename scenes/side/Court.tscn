@@ -18,4 +18,5 @@ position = Vector2(704, 425)
 script = ExtResource("Portal")
 destination = "res://scenes/side/Warehouse.tscn"
 arrival = &"FromCourt"
+placement_id = &"court.door.warehouse"
 entrance_text = "ورود به انبار"
