@@ -10,6 +10,8 @@ var _inventory: SideInventory
 func _ready() -> void:
 	position = Vector2(255, 106)
 	custom_minimum_size = Vector2(450, 304)
+	# The CanvasLayer parent does not allocate a layout rectangle.
+	size = custom_minimum_size
 	mouse_filter = Control.MOUSE_FILTER_IGNORE
 	var margin := MarginContainer.new()
 	for edge in ["top", "bottom", "left", "right"]:

@@ -118,7 +118,17 @@ func run() -> void:
 	check(inventory == run_state.inventory and inventory.count(AMMO) == 36 and room.player.reserve_for(AMMO) == 36
 		and room.weapon.firearm.magazine == 12, "live Court player uses the run inventory and approved loadout")
 	await press(KEY_TAB)
-	check(panel.visible and paused and not room.hud.result.visible, "Tab opens the panel and pauses gameplay")
+	check(panel.is_visible_in_tree() and paused and not room.hud.result.visible, "Tab opens the panel and pauses gameplay")
+	var panel_rect := panel.get_global_rect()
+	check(panel_rect.has_area() and panel_rect.size.x >= 450.0 and panel_rect.size.y >= 304.0,
+		"the visible panel has an actual rectangle of at least 450 by 304")
+	check(root.get_visible_rect().encloses(panel_rect), "the panel rectangle fits inside the game viewport")
+	var column := panel.items.get_parent() as VBoxContainer
+	var margin := column.get_parent() as MarginContainer
+	var style := panel.get_theme_stylebox("panel")
+	var content_rect := Rect2(panel_rect.position + style.get_offset(), panel_rect.size - style.get_minimum_size())
+	check(margin.get_global_rect().is_equal_approx(content_rect), "the margin container fills the panel content rectangle")
+	check(column.get_global_rect().is_equal_approx(content_rect.grow(-16.0)), "the column fills the padded rectangle")
 	var origin := room.player.position
 	await press(KEY_D)
 	check(room.player.position == origin, "paused gameplay does not move while the panel is open")
