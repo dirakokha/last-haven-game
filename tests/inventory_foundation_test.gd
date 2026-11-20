@@ -132,11 +132,13 @@ func run() -> void:
 	var origin := room.player.position
 	await press(KEY_D)
 	check(room.player.position == origin, "paused gameplay does not move while the panel is open")
+	check((column.get_child(0) as Label).text == "INVENTORY" and panel.slots.text == "SLOTS \u20661 / 6\u2069",
+		"standard Inventory heading and slot label remain English")
 	check(panel.slots.text.contains("1 / 6") and panel.items.text.contains("فشنگ ۹ میلی‌متری")
 		and panel.items.text.contains("\u206636\u2069") and panel.items.text.contains("\u2066ammo.9mm\u2069"),
 		"panel shows real slot count, localized name, isolated quantity and ID")
 	inventory.clear()
-	check(panel.items.text == "موجودی خالی است" and panel.slots.text.contains("0 / 6"), "committed clear refreshes the empty state immediately")
+	check(panel.items.text == "EMPTY" and panel.slots.text.contains("0 / 6"), "committed clear refreshes the empty state immediately")
 	inventory.reset()
 	check(panel.items.text.contains("\u206636\u2069"), "committed reset refreshes counts immediately")
 	await press(KEY_TAB)

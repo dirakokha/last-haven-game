@@ -23,5 +23,9 @@ func is_valid() -> bool:
 				return false
 	return true
 
+# Display names are presentation; category and stack rules must agree.
+func is_compatible_with(other: ItemDef) -> bool:
+	return other != null and item_id == other.item_id and category == other.category and max_stack == other.max_stack
+
 static func _alphanumeric(code: int) -> bool:
 	return (code >= 97 and code <= 122) or (code >= 48 and code <= 57)

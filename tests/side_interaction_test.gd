@@ -42,7 +42,7 @@ func run() -> void:
 		quit(1))
 	root.size = Vector2i(960, 540)
 	var unrelated := preload("res://tests/fixtures/unrelated_ammo.tres")
-	set_meta(SideRunState.KEY, SideRunState.new(ItemCatalog.new([ItemCatalog.AMMO_9MM, unrelated])))
+	set_meta(SideRunState.KEY, SideRunState.new(ItemCatalog.new([ItemCatalog.AMMO_9MM, ItemCatalog.SCRAP_METAL, unrelated])))
 	if change_scene_to_file(COURT) != OK:
 		quit(1)
 		return
@@ -71,6 +71,8 @@ func run() -> void:
 	await scene_changed
 	room = current_scene as SideRoom
 	await settle()
+	# process_frame is emitted before SideRoom updates the newly arrived prompt.
+	await process_frame
 	var pickup := room.get_node("AmmoPickup") as SideAmmoPickup
 	check(room.indoor and room.player.position.is_equal_approx(Vector2(265, 425)), "W arrives at the Warehouse marker")
 	check(room.select_interactable() == room.get_node("CourtEntrance") and room.hud.prompt.text == "\u2066W\u2069 — خروج به محوطه",

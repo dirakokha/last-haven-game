@@ -22,12 +22,12 @@ func _ready() -> void:
 	column.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	column.add_theme_constant_override("separation", 10)
 	margin.add_child(column)
-	label(column, tr("موجودی"), 22)
-	slots = label(column, "", 16)
+	label(column, "INVENTORY", 22, true)
+	slots = label(column, "", 16, true)
 	items = label(column, "", 16)
 	items.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
 	items.size_flags_vertical = Control.SIZE_EXPAND_FILL
-	label(column, tr("بستن: %s یا %s") % [_ltr("Tab"), _ltr("Esc")], 14)
+	label(column, "%s — CLOSE" % _ltr("Tab / Esc"), 14, true)
 	hide()
 
 func bind(inventory: SideInventory) -> void:
@@ -36,15 +36,15 @@ func bind(inventory: SideInventory) -> void:
 	_refresh()
 
 func _refresh() -> void:
-	slots.text = tr("خانه‌های پُر: %s") % _ltr("%d / %d" % [_inventory.occupied_slots(), _inventory.capacity])
+	slots.text = "SLOTS %s" % _ltr("%d / %d" % [_inventory.occupied_slots(), _inventory.capacity])
 	var lines := PackedStringArray()
 	for row in _inventory.stack_rows():
 		lines.append(tr("%s  ×  %s  ·  %s") % [tr(row.name), _ltr(str(row.quantity)), _ltr(String(row.id))])
-	items.text = tr("موجودی خالی است") if lines.is_empty() else "\n".join(lines)
+	items.text = "EMPTY" if lines.is_empty() else "\n".join(lines)
 
-func label(parent: VBoxContainer, text: String, font_size: int) -> Label:
+func label(parent: VBoxContainer, text: String, font_size: int, english: bool = false) -> Label:
 	var item := Label.new()
-	item.text_direction = Control.TEXT_DIRECTION_RTL
+	item.text_direction = Control.TEXT_DIRECTION_LTR if english else Control.TEXT_DIRECTION_RTL
 	item.language = "fa"
 	item.horizontal_alignment = HORIZONTAL_ALIGNMENT_RIGHT
 	item.mouse_filter = Control.MOUSE_FILTER_IGNORE
