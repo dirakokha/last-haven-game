@@ -79,7 +79,7 @@ func run() -> void:
 	player.collision_layer = 2
 	world.add_child(player)
 	player.set_physics_process(false)
-	var gun := SideWeapon.new(ALTERNATE)
+	var gun := SideWeapon.new(WeaponLoadout.new(ALTERNATE))
 	player.add_child(gun)
 	# Explicit deltas exercise the production tick without frame-rate-dependent thresholds.
 	gun.set_physics_process(false)

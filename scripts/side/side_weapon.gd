@@ -9,12 +9,18 @@ const INSERT_REMAINING := 59.0 / 115.0
 const SLIDE_REMAINING := 19.0 / 115.0
 const SHOT_FLASH_TIME := 0.047
 const SHOT_RECOIL_TIME := 0.15
+const SWITCH_LOCK := 0.18
 # Contact uses the matching wooden barrel in the BAT_IMPACT cel (pixel 135, 46).
 const BAT_TIP := Vector2(67, -68)
 const BAT_START_CONTACT := 0.20
 const BAT_END := 0.52
 enum BatPhase { NONE, READY, WINDUP, SWING, IMPACT, FOLLOW, RECOVER }
-var firearm: WeaponInstance
+var _loadout: WeaponLoadout
+var loadout: WeaponLoadout:
+	get: return _loadout
+var firearm: WeaponInstance:
+	get: return _loadout.active_weapon
+var _switch_left := 0.0
 var cooldown := 0.0
 var reload_left := 0.0
 var recoil_left := 0.0
@@ -25,16 +31,20 @@ var bat_phase := BatPhase.NONE
 var reload_stage := 0
 var started_empty := false
 
-func _init(config: WeaponDef) -> void:
-	firearm = WeaponInstance.new(config)
+func _init(weapons: WeaponLoadout) -> void:
+	_loadout = weapons
 
 func _physics_process(delta: float) -> void:
 	cooldown = maxf(0.0, cooldown - delta)
 	recoil_left = maxf(0.0, recoil_left - delta)
+	_switch_left = maxf(0.0, _switch_left - delta)
 	if bat_phase != BatPhase.NONE:
 		advance_bat(delta)
 		return
-	if reload_left > 0.0:
+	if firearm == null:
+		return
+	var was_reloading := reload_left > 0.0
+	if was_reloading:
 		reload_left = maxf(0.0, reload_left - delta)
 		if reload_stage == 0 and reload_left <= firearm.definition.reload_duration * INSERT_REMAINING:
 			reload_stage = 1
@@ -48,13 +58,34 @@ func _physics_process(delta: float) -> void:
 			var needed := config.magazine_capacity - firearm.magazine
 			var taken := owner_player.take_reserve(config.ammo_id, needed)
 			firearm.load_rounds(config.ammo_id, taken)
-	elif cooldown == 0.0:
+	# A reload finishing this tick commits before any switch is processed.
+	var slot := 0
+	if Input.is_action_just_pressed("weapon_slot_1"):
+		slot = WeaponLoadout.SLOT_1
+	elif Input.is_action_just_pressed("weapon_slot_2"):
+		slot = WeaponLoadout.SLOT_2
+	if slot != 0 and switch_to(slot):
+		return
+	if not was_reloading and cooldown == 0.0:
 		if Input.is_action_just_pressed("reload"):
 			begin_reload()
 		elif Input.is_action_just_pressed("bat"):
 			melee()
 		elif Input.is_action_just_pressed("fire"):
 			shoot()
+
+func switch_to(slot: int) -> bool:
+	var actor := get_parent() as SidePlayer
+	if actor == null or not is_inside_tree() or not can_process() or not actor.can_process() \
+		or get_tree().paused or actor.vitals.is_depleted() or bat_phase != BatPhase.NONE \
+		or _switch_left > 0.0 or not _loadout.can_equip(slot):
+		return false
+	# Cancellation never spends reserve. Do not reset the previous shot's cooldown.
+	reload_left = 0.0
+	reload_stage = 0
+	started_empty = false
+	_switch_left = SWITCH_LOCK
+	return _loadout.equip(slot)
 
 func facing() -> int:
 	return (get_parent() as SidePlayer).facing
@@ -73,6 +104,8 @@ func showing_shot_flash() -> bool:
 	return recoil_left > SHOT_RECOIL_TIME - SHOT_FLASH_TIME
 
 func begin_reload() -> void:
+	if firearm == null:
+		return
 	var config := firearm.definition
 	if config == null or firearm.magazine >= config.magazine_capacity or cooldown > 0.0 or reload_left > 0.0:
 		return
@@ -84,7 +117,7 @@ func begin_reload() -> void:
 	handling.emit(shoulder(), &"release")
 
 func shoot() -> void:
-	if cooldown > 0.0 or reload_left > 0.0 or not firearm.consume_round():
+	if cooldown > 0.0 or reload_left > 0.0 or firearm == null or not firearm.consume_round():
 		return
 	var config := firearm.definition
 	cooldown = config.fire_cooldown

@@ -15,6 +15,7 @@ class Fleck:
 	var kind: StringName
 	var gravity: float
 	var facing: int
+	var shot_pin: Vector2
 
 func burst(at: Vector2, velocity: Vector2, time: float, color: Color, kind: StringName, gravity: float, facing: int = 1) -> void:
 	if flecks.size() >= 120:
@@ -33,6 +34,9 @@ func burst(at: Vector2, velocity: Vector2, time: float, color: Color, kind: Stri
 
 func firing(at: Vector2, direction: int) -> void:
 	burst(at, Vector2.ZERO, SideWeapon.SHOT_FLASH_TIME, Color("ffc16f"), &"flash", 0.0, direction)
+	if is_instance_valid(weapon):
+		# Follow the original muzzle pin, even if the equipped firearm changes.
+		flecks[-1].shot_pin = weapon.to_local(at)
 	for i in range(4):
 		burst(at + Vector2(direction * (4 + i), 0), Vector2(direction * (12 + i*5), -11 - i*3),
 			0.20 + 0.035*i, Color(0.72, 0.69, 0.61, 0.46), &"smoke", 0.0)
@@ -82,7 +86,7 @@ func _draw() -> void:
 	for f in flecks:
 		var point := f.p
 		if f.kind == &"flash" and is_instance_valid(weapon):
-			point = weapon.muzzle_for(f.facing)
+			point = weapon.to_global(f.shot_pin)
 		var p := to_local(point.round())
 		var tint := f.tint
 		tint.a *= minf(1.0, 1.5 * f.left / f.life)

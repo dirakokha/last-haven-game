@@ -1,4 +1,4 @@
-[gd_scene load_steps=6 format=3]
+[gd_scene load_steps=8 format=3]
 
 [ext_resource type="Script" path="res://scripts/side/side_room.gd" id="Room"]
 [ext_resource type="Script" path="res://scripts/side/side_portal.gd" id="Portal"]
@@ -7,6 +7,9 @@
 
 [ext_resource type="Script" path="res://scripts/side/side_loot_container.gd" id="LootContainer"]
 [ext_resource type="Resource" path="res://assets/loot/warehouse_supply.tres" id="Supply"]
+
+[ext_resource type="Script" path="res://scripts/side/side_weapon_pickup.gd" id="WeaponPickup"]
+[ext_resource type="Resource" path="res://assets/weapons/heavy_pistol.tres" id="HeavyPistol"]
 
 [node name="Warehouse" type="Node2D"]
 script = ExtResource("Room")
@@ -68,3 +71,21 @@ polygon = PackedVector2Array(-27, -26, -21, -30, 21, -30, 27, -26, 27, -21, -27,
 [node name="Latch" type="Polygon2D" parent="SupplyCrate"]
 color = Color(0.67, 0.6, 0.43, 1)
 polygon = PackedVector2Array(-5, -22, 5, -22, 5, -14, -5, -14)
+
+[node name="HeavyPistolPickup" type="Marker2D" parent="."]
+position = Vector2(815, 425)
+z_index = 1
+script = ExtResource("WeaponPickup")
+definition = ExtResource("HeavyPistol")
+slot = 2
+placement_id = &"warehouse.pickup.heavy_pistol.01"
+prompt_text = "برداشتن تپانچه سنگین"
+reach = 56.0
+
+[node name="Pistol" type="Polygon2D" parent="HeavyPistolPickup"]
+color = Color(0.4, 0.47, 0.48, 1)
+polygon = PackedVector2Array(-14, -15, 15, -15, 15, -9, -1, -9, -4, -1, -12, -1, -9, -9, -14, -9)
+
+[node name="Slide" type="Polygon2D" parent="HeavyPistolPickup"]
+color = Color(0.67, 0.71, 0.66, 1)
+polygon = PackedVector2Array(-14, -15, 15, -15, 15, -12, -14, -12)

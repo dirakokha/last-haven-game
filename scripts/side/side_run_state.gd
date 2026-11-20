@@ -6,6 +6,9 @@ const STARTING_RESERVE := 36
 var _inventory: SideInventory
 var inventory: SideInventory:
 	get: return _inventory
+var _loadout := WeaponLoadout.new()
+var loadout: WeaponLoadout:
+	get: return _loadout
 var _catalog: ItemCatalog
 var _containers: Dictionary[StringName, Dictionary] = {}
 var _collected: Dictionary[StringName, bool] = {}
@@ -55,5 +58,6 @@ func reset() -> bool:
 		var contents: SideInventory = registered.inventory
 		if not contents.reset():
 			return false
+	_loadout.reset()
 	_collected.clear()
 	return true
