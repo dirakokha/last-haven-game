@@ -1,4 +1,10 @@
-# آخرین پناهگاه · Art Direction V1.1
+# آخرین پناهگاه · Art Foundation Freeze
+
+**Production decision:** The owner Windows-reviewed V1.1 and approved detailed realistic pixel-art characters in cinematic, atmospheric environments. Maintain the protagonist, Walker, camera, side-view rules and current audio. Future animation should favor expressive, meaningful frames and consistent proportions, with ordinary-PC performance; no frame padding. Weather, shadows and environmental depth remain defining principles, not a reason for more visual experiments now.
+
+The limited PR #3 freeze pass addresses identified baked rain strokes, an actual six-phase bat action and obvious existing animation stability. It keeps the current Persian HUD and introduces no new locations, lighting experiments, art collection or gameplay subsystems. See [Windows acceptance and report](WINDOWS_ACCEPTANCE.md) and the [post-merge Core Gameplay Foundation proposal](CORE_GAMEPLAY_FOUNDATION.md).
+
+## V1.1 snapshot (before the freeze pass)
 
 **Status:** Owner tested Gate 2 on Windows and approved the visual foundation. V1.1 is a focused playable review in [the existing PR #3](https://github.com/dirakokha/last-haven-game/pull/3), not a final-animation sign-off or permission to start the campaign. The earlier Gate 2 PNG, GIF and synthetic audio in `docs/review/` are historical comparisons, not what F5 plays today.
 

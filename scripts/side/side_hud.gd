@@ -102,7 +102,7 @@ func refresh(room: Node, entry: String) -> void:
 	health_fill.size.x = health_track.size.x * clampf(room.health / 100.0, 0.0, 1.0)
 	health_fill.color = Color("a0544e") if room.health <= 30 else Color("87a291")
 	condition.text = tr("از پا افتاده" if room.defeated else ("آسیب‌دیده" if room.health < 100 else "سالم"))
-	if room.weapon.swing_left > 0.0 and not room.defeated:
+	if room.weapon.bat_phase != SideWeapon.BatPhase.NONE and not room.defeated:
 		instrument.text = tr("چوب‌دست  ·  ضربه")
 	elif room.weapon.reload_left > 0.0 and not room.defeated:
 		instrument.text = tr("تپانچه  ·  تعویض خشاب")

@@ -27,13 +27,16 @@ def atlas(name, count):
 
 
 def main():
-    hero, walker = atlas('survivor', 9), atlas('walker', 6)
+    hero, walker = atlas('survivor', 14), atlas('walker', 6)
     # Verify the visible barrel terminates one pixel before the muzzle. Godot's
     # flip uses column 143-x and offset -75, mirroring about the identical pin.
     muzzle_x, muzzle_y = PIN[0]+42, PIN[1]-78
     for i in (0, 1, 2, 4, 6):
         assert hero[i].getpixel((muzzle_x-1, muzzle_y))[3] == 255
         assert hero[i].getpixel((muzzle_x, muzzle_y))[3] == 0
+    # Gameplay bat tip at the outermost occupied pixel on the contact row.
+    assert hero[7].getpixel((135, 46))[3] == 255 and hero[7].getpixel((136, 46))[3] == 0
+    assert len({hero[i].tobytes() for i in (9,10,11,7,12,13)}) == 6
     assert hero[0].getchannel('A').getbbox()[1] == 14
     assert 102 <= walker[0].getchannel('A').getbbox()[3]-walker[0].getchannel('A').getbbox()[1] <= 105
 
@@ -42,7 +45,7 @@ def main():
     dry = Image.open(ASSETS/'court_dry.png').convert('RGB')
     assert dry.size == old.size == (1100, 540)
     matches = sum(a == b for a, b in zip(old.get_flattened_data(), dry.get_flattened_data()))
-    assert .94 < matches / (1100*540) < .998
+    assert .91 < matches / (1100*540) < .998
     # The signature reflection under the amber door was not repainted.
     assert old.crop((680, 452, 752, 486)).tobytes() == dry.crop((680, 452, 752, 486)).tobytes()
 

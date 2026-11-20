@@ -3,6 +3,7 @@ extends Node2D
 
 signal casing_landed(at: Vector2)
 var flecks: Array[Fleck] = []
+var weapon: SideWeapon
 var rng := RandomNumberGenerator.new()
 
 class Fleck:
@@ -31,7 +32,7 @@ func burst(at: Vector2, velocity: Vector2, time: float, color: Color, kind: Stri
 	queue_redraw()
 
 func firing(at: Vector2, direction: int) -> void:
-	burst(at, Vector2.ZERO, 0.047, Color("ffc16f"), &"flash", 0.0, direction)
+	burst(at, Vector2.ZERO, SideWeapon.SHOT_FLASH_TIME, Color("ffc16f"), &"flash", 0.0, direction)
 	for i in range(4):
 		burst(at + Vector2(direction * (4 + i), 0), Vector2(direction * (12 + i*5), -11 - i*3),
 			0.20 + 0.035*i, Color(0.72, 0.69, 0.61, 0.46), &"smoke", 0.0)
@@ -79,7 +80,10 @@ func _physics_process(delta: float) -> void:
 
 func _draw() -> void:
 	for f in flecks:
-		var p := to_local(f.p.round())
+		var point := f.p
+		if f.kind == &"flash" and is_instance_valid(weapon):
+			point = weapon.muzzle_for(f.facing)
+		var p := to_local(point.round())
 		var tint := f.tint
 		tint.a *= minf(1.0, 1.5 * f.left / f.life)
 		match f.kind:

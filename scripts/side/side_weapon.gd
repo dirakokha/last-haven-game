@@ -9,12 +9,22 @@ const RELOAD_TIME := 1.15
 const SHOULDER_Y := -78.0
 # Measured from the authored cel pin to the front edge of the horizontal pistol.
 const BARREL_X := 42.0
+const SHOT_FLASH_TIME := 0.047
+const SHOT_RECOIL_TIME := 0.15
+# Contact uses the matching wooden barrel in the BAT_IMPACT cel (pixel 135, 46).
+const BAT_TIP := Vector2(67, -68)
+const BAT_START_CONTACT := 0.20
+const BAT_END := 0.52
+enum BatPhase { NONE, READY, WINDUP, SWING, IMPACT, FOLLOW, RECOVER }
 var magazine := CAPACITY
 var reserve := 36
 var cooldown := 0.0
 var reload_left := 0.0
 var recoil_left := 0.0
-var swing_left := 0.0
+var shot_facing := 1
+var bat_facing := 1
+var bat_elapsed := 0.0
+var bat_phase := BatPhase.NONE
 var reload_stage := 0
 var started_empty := false
 @export var projectile_speed := 1840.0
@@ -23,7 +33,9 @@ var started_empty := false
 func _physics_process(delta: float) -> void:
 	cooldown = maxf(0.0, cooldown - delta)
 	recoil_left = maxf(0.0, recoil_left - delta)
-	swing_left = maxf(0.0, swing_left - delta)
+	if bat_phase != BatPhase.NONE:
+		advance_bat(delta)
+		return
 	if reload_left > 0.0:
 		reload_left = maxf(0.0, reload_left - delta)
 		if reload_stage == 0 and reload_left <= 0.59:
@@ -51,7 +63,13 @@ func shoulder() -> Vector2:
 	return to_global(Vector2(0.0, SHOULDER_Y))
 
 func muzzle_position() -> Vector2:
-	return shoulder() + Vector2(facing() * BARREL_X, 0.0)
+	return muzzle_for(facing())
+
+func muzzle_for(side: int) -> Vector2:
+	return to_global(Vector2(side * BARREL_X, SHOULDER_Y))
+
+func showing_shot_flash() -> bool:
+	return recoil_left > SHOT_RECOIL_TIME - SHOT_FLASH_TIME
 
 func begin_reload() -> void:
 	if magazine < CAPACITY and reserve > 0 and cooldown == 0.0 and reload_left == 0.0:
@@ -65,9 +83,10 @@ func shoot() -> void:
 		return
 	magazine -= 1
 	cooldown = 0.23
-	recoil_left = 0.15
+	recoil_left = SHOT_RECOIL_TIME
 	var projectile := SideProjectile.new()
 	var side := facing()
+	shot_facing = side
 	projectile.direction = side
 	projectile.speed = projectile_speed
 	projectile.distance_left = projectile_range
@@ -87,14 +106,47 @@ func shoot() -> void:
 		projectile.queue_free()
 
 func melee() -> void:
-	if cooldown > 0.0 or reload_left > 0.0:
+	if cooldown > 0.0 or reload_left > 0.0 or bat_phase != BatPhase.NONE:
 		return
-	cooldown = 0.52
-	swing_left = 0.24
-	var origin := to_global(Vector2(0, -51))
-	var horizontal := facing()
-	var query := PhysicsRayQueryParameters2D.create(origin, origin + Vector2(horizontal * 87.0, 0.0), SideProjectile.TARGET_MASK, [(get_parent() as SidePlayer).get_rid()])
+	cooldown = BAT_END
+	bat_elapsed = 0.0
+	bat_facing = facing()
+	bat_phase = BatPhase.READY
+
+func advance_bat(delta: float) -> void:
+	var before := bat_elapsed
+	bat_elapsed = minf(BAT_END, before + delta)
+	if bat_elapsed < 0.05:
+		bat_phase = BatPhase.READY
+	elif bat_elapsed < 0.15:
+		bat_phase = BatPhase.WINDUP
+	elif bat_elapsed < BAT_START_CONTACT:
+		bat_phase = BatPhase.SWING
+	elif bat_elapsed < 0.26:
+		bat_phase = BatPhase.IMPACT
+	elif bat_elapsed < 0.37:
+		bat_phase = BatPhase.FOLLOW
+	elif bat_elapsed < BAT_END:
+		bat_phase = BatPhase.RECOVER
+	else:
+		bat_phase = BatPhase.NONE
+	# One query per committed swing. Crossing the marker is also the only path
+	# that can publish melee sound/effects. A miss has no impact feedback.
+	if before < BAT_START_CONTACT and bat_elapsed >= BAT_START_CONTACT:
+		resolve_bat_contact()
+
+func resolve_bat_contact() -> void:
+	var origin := to_global(Vector2(0, BAT_TIP.y))
+	var tip := to_global(Vector2(bat_facing * BAT_TIP.x, BAT_TIP.y))
+	var query := PhysicsRayQueryParameters2D.create(origin, tip, SideProjectile.TARGET_MASK, [(get_parent() as SidePlayer).get_rid()])
+	query.hit_from_inside = true
 	var strike := get_world_2d().direct_space_state.intersect_ray(query)
-	if not strike.is_empty() and strike.collider is SideWalker:
-		strike.collider.hurt(31, horizontal * 220.0)
+	if strike.is_empty():
+		return
+	if strike.collider is SideWalker:
+		if strike.collider.hp <= 0:
+			return
+		strike.collider.hurt(31, bat_facing * 220.0)
 		hit.emit(strike.position, &"melee")
+	else:
+		hit.emit(strike.position, strike.collider.get_meta("surface", &"concrete"))

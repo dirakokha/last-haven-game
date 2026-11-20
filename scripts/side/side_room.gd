@@ -60,6 +60,7 @@ func _ready() -> void:
 	add_child(audio)
 	audio.setup(not indoor, rain_enabled)
 	effects.z_index = 2
+	effects.weapon = weapon
 	world.add_child(effects)
 	weapon.fired.connect(audio.fire)
 	weapon.fired.connect(effects.firing)

@@ -10,6 +10,9 @@ var impact_point := Vector2.ZERO
 var last_material := &""
 var contact_count := 0
 var case_steps := 0
+var melee_hits := 0
+var hit_phase := SideWeapon.BatPhase.NONE
+var footsteps: Array[int] = []
 var reload_stages: Array[StringName] = []
 var restored_preferences := false
 var backup := PackedByteArray()
@@ -85,6 +88,14 @@ func click(cursor: Vector2) -> void:
 	Input.parse_input_event(mouse)
 	Input.flush_buffered_events()
 
+func wait_bat_phase(gun: SideWeapon, expected: SideWeapon.BatPhase) -> void:
+	# Await actual physics markers rather than assuming exactly one fixed tick
+	# per rendered frame (the decimal boundaries can also round one tick later).
+	for i in range(16):
+		if gun.bat_phase == expected:
+			return
+		await ticks(1)
+
 func run() -> void:
 	had_preferences = FileAccess.file_exists(SideWeatherPreferences.FILE)
 	if had_preferences:
@@ -108,15 +119,21 @@ func run() -> void:
 		check(AudioServer.get_bus_index(bus) > 0, "independent audio bus " + str(bus))
 	check(room.rain_enabled and room.view.weather.visible and room.audio.rain.playing, "starts with visible/audible rain nodes")
 	f2()
+	var paused_drops: PackedVector2Array = room.view.weather.drops.duplicate()
+	await ticks(3)
+	check(room.view.weather.drops == paused_drops, "F2 off also stops precipitation simulation")
 	check(not room.rain_enabled and not room.view.weather.visible and not room.view.weather.is_processing() and not room.audio.rain.playing, "F2 stops both weather paths immediately")
 	f2()
 	check(room.rain_enabled and room.view.weather.visible and room.audio.rain.playing, "F2 restores both weather paths")
+	await ticks(3)
+	check(room.view.weather.drops != paused_drops, "F2 on resumes precipitation simulation")
 	f2()
 	check(not SideWeatherPreferences.read(), "F2 persists off to disk")
 	var actor: SidePlayer = room.player
 	actor.launched.connect(func() -> void: jump_count += 1)
 	actor.landed.connect(func() -> void: landing_count += 1)
 	actor.footfall.connect(func(_running: bool, surface: StringName) -> void:
+		footsteps.append(Engine.get_physics_frames())
 		if surface == &"metal":
 			case_steps += 1)
 	room.weapon.fired.connect(func(at: Vector2, side: int) -> void:
@@ -135,6 +152,20 @@ func run() -> void:
 	await ticks(7)
 	Input.action_release("move_near")
 	check(actor.position.is_equal_approx(start), "old depth movement unused")
+	Input.action_press("move_right")
+	await ticks(6)
+	check(actor.gait_moving and not actor.gait_running and absf(actor.velocity.x - actor.walk_speed) < 0.1, "walk uses approved speed and grounded gait")
+	Input.action_press("sprint")
+	await ticks(6)
+	check(actor.gait_running and absf(actor.velocity.x - actor.run_speed) < 0.1, "sprint switches speed without leaving the gait")
+	Input.action_release("sprint")
+	Input.action_release("move_right")
+	await pulse("side_dodge")
+	check(actor.dodge_left > 0.0 and not actor.gait_moving, "dodge doesn't create a walking footfall pose")
+	await ticks(30)
+	actor.position = start
+	await ticks(3)
+	footsteps.clear()
 	Input.action_press("move_right")
 	await ticks(65)
 	check(actor.position.x < 451.0 and actor.position.x > 445.0, "low obstacle blocks walking")
@@ -157,6 +188,8 @@ func run() -> void:
 	await ticks(43)
 	Input.action_release("move_right")
 	check(jump_count == 1 and landing_count == 1 and actor.is_on_floor(), "one jump before landing")
+	for i in range(1, footsteps.size()):
+		check(footsteps[i] - footsteps[i-1] > 1, "landing doesn't double-trigger the resumed gait")
 	check(actor.position.x > 555.0, "jump clears real obstacle")
 	check(not is_instance_valid(projectile), "projectile expires at finite range")
 
@@ -231,11 +264,37 @@ func run() -> void:
 	await ticks(38)
 	check(room.health == 70, "Walker still deals the original 15 damage")
 	gun = room.weapon
-	gun.melee()
-	await ticks(4)
-	check(room.walker.hp == 0 and room.walker.collision_layer == 0 and room.checkpoint_hp == 0, "melee finishes the Walker and corpse is nonblocking")
-	await ticks(17)
-	check((room.walker.get_child(-1) as SideReviewArt).pose_index == SideReviewArt.Infected.DEATH, "distinct final Walker cels stay visible")
+	gun.hit.connect(func(_at: Vector2, material: StringName) -> void:
+		melee_hits += int(material == &"melee")
+		hit_phase = gun.bat_phase
+		last_material = material)
+	var player_art := room.player.get_child(-1) as SideReviewArt
+	var mag_before: int = gun.magazine
+	await pulse("bat")
+	check(gun.bat_phase == SideWeapon.BatPhase.READY and player_art.pose_index == SideReviewArt.Hero.BAT_READY, "F equips the ready drawing")
+	await wait_bat_phase(gun, SideWeapon.BatPhase.WINDUP)
+	check(gun.bat_phase == SideWeapon.BatPhase.WINDUP and player_art.pose_index == SideReviewArt.Hero.BAT_WINDUP, "bat displays windup before contact")
+	check(room.walker.hp == 17 and melee_hits == 0, "no damage or impact while winding up")
+	await wait_bat_phase(gun, SideWeapon.BatPhase.SWING)
+	check(gun.bat_phase == SideWeapon.BatPhase.SWING and player_art.pose_index == SideReviewArt.Hero.BAT_SWING, "bat displays pre-contact swing")
+	await wait_bat_phase(gun, SideWeapon.BatPhase.IMPACT)
+	check(gun.bat_phase == SideWeapon.BatPhase.IMPACT and player_art.pose_index == SideReviewArt.Hero.BAT_IMPACT, "impact drawing matches the physics contact window")
+	check(melee_hits == 1 and hit_phase == SideWeapon.BatPhase.IMPACT and gun.magazine == mag_before, "one melee contact on impact, no magazine change")
+	var voices: Array[AudioStreamPlayer2D] = room.audio.pools[&"Weapons"]
+	check(voices.any(func(voice: AudioStreamPlayer2D) -> bool:
+		return voice.playing and voice.stream == SideReviewAudio.CLIPS[&"melee"]), "same hit event starts licensed melee cue on Weapons")
+	check(room.effects.flecks.any(func(f: SideEffects.Fleck) -> bool: return f.kind == &"strike"), "actual melee hit triggers impact FX")
+	check(room.walker.hp == 0 and room.walker.collision_layer == 0 and room.checkpoint_hp == 0, "bat finishes Walker and corpse is nonblocking")
+	await wait_bat_phase(gun, SideWeapon.BatPhase.FOLLOW)
+	check(player_art.pose_index == SideReviewArt.Hero.BAT_FOLLOW, "bat displays follow-through")
+	await wait_bat_phase(gun, SideWeapon.BatPhase.RECOVER)
+	check(player_art.pose_index == SideReviewArt.Hero.BAT_RECOVER, "bat displays recovery")
+	await wait_bat_phase(gun, SideWeapon.BatPhase.NONE)
+	check(gun.bat_phase == SideWeapon.BatPhase.NONE and melee_hits == 1, "no repeat damage in recovery")
+	check((room.walker.get_child(-1) as SideReviewArt).pose_index == SideReviewArt.Infected.DEATH, "distinct final Walker cel stays visible")
+	await pulse("bat")
+	await ticks(33)
+	check(melee_hits == 1, "bat miss or corpse does not trigger impact")
 	f2()
 	check(room.view.weather.visible and room.audio.rain.playing, "F2 turns rain back on after round trip")
 	f2()
@@ -266,9 +325,23 @@ func run() -> void:
 	check(last_material == &"concrete" and absf(impact_point.x) < 0.2, "shoulder-to-muzzle preflight catches a concrete obstruction")
 	check(room.effects.flecks.any(func(f: SideEffects.Fleck) -> bool: return f.kind == &"dust")
 		and not room.effects.flecks.any(func(f: SideEffects.Fleck) -> bool: return f.kind == &"blood"), "concrete produces dust, not blood")
+	await ticks(16)
+	room.player.position = Vector2(680, 425)
+	walker.position = Vector2(617, 425)
+	var obstruction := room.add_solid(Rect2(633, 325, 10, 60), &"metal")
+	last_material = &""
+	await ticks(3)
+	await pulse("bat")
+	await ticks(13)
+	check(room.weapon.bat_facing == -1 and last_material == &"metal" and walker.hp == 65, "left bat respects nearest obstruction")
+	obstruction.queue_free()
+	await ticks(30)
+	await pulse("bat")
+	await ticks(13)
+	check(last_material == &"melee" and walker.hp == 34, "left bat contacts infected only when clear")
 	unload_current_scene()
 	await ticks(4)
 	restore_preferences()
 	if failures == 0:
-		print("PASS: V1.1 side-view movement, directional LMB/muzzle, finite sweep and contacts, reload, Walker/melee, audio routing, rain F2/persistence, portal and scale")
+		print("PASS: foundation freeze side-view movement, directional LMB/muzzle, finite sweep and contacts, reload, Walker/melee, audio routing, rain F2/persistence, portal and scale")
 	quit(0 if failures == 0 else 1)

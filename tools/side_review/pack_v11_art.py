@@ -35,24 +35,60 @@ STREAKS = [
 ]
 
 
+# Freeze review at native scale: remaining disconnected rain tails and strokes
+# crossing architectural edges. Leave attached panel/drain highlights alone.
+FREEZE_STREAKS = [
+    (26,0,57,2),(93,1,38,3),(212,58,100,2),(238,0,45,2),(292,0,36,2),
+    (310,4,27,2),(323,81,108,1),(352,59,98,2),(382,43,75,2),(437,53,97,2),
+    (477,24,58,2),(537,69,106,2),(563,59,87,2),(622,8,43,2),(670,0,36,2),
+    (735,0,65,2),(810,6,40,2),(835,13,75,2),(942,45,102,2),(996,6,47,2),
+    (1072,18,49,2),(188,77,129,2),(98,92,160,2),(168,110,157,2),
+    (136,137,199,2),(202,140,185,2),(219,123,161,2),(250,139,173,2),
+    (365,119,166,2),(501,112,170,2),(566,124,183,2),(654,121,158,2),
+    (745,88,128,2),(849,140,254,1),(961,104,177,2),(1041,135,167,2),
+    (24,196,261,2),(62,225,245,2),(128,191,222,2),(173,168,237,2),
+    (270,235,287,2),(297,248,289,2),(365,256,316,2),(385,248,279,2),
+    (424,193,271,3),(524,221,274,2),(584,226,270,2),(624,224,277,2),
+    (677,206,246,2),(717,231,257,2),(738,214,262,2),(766,211,257,2),
+    (865,193,228,2),(924,208,250,2),(989,203,254,2),(1030,248,301,2),
+    (1066,237,296,2),(1071,263,306,2),(1085,248,292,2),
+    (33,361,408,2),(61,383,410,2),(97,403,453,2),(151,367,396,2),
+    (165,389,432,2),(222,363,396,2),(277,392,424,2),(337,413,436,2),
+    (379,361,411,2),(407,378,427,2),(445,381,423,2),(469,380,425,2),
+    (479,344,378,2),(501,360,391,2),(525,415,451,3),(538,357,398,2),
+    (556,357,392,2),(586,379,432,2),(611,367,400,2),(671,399,433,2),
+    (731,390,422,2),(791,356,414,2),(821,393,441,2),(862,369,402,2),
+    (891,362,412,2),(934,369,409,2),(985,384,425,2),(1073,374,408,2),
+    (21,453,483,2),(46,467,495,2),(157,459,493,2),(311,466,499,2),
+    (502,452,494,2),(555,475,514,2),(621,489,520,2),(813,470,500,2),
+    (411,490,539,3),(871,517,539,3),(521,100,182,2),(545,98,192,3),
+    (730,0,69,3),(964,345,426,3),(1064,160,202,3),(1080,282,334,3),
+    (285,176,234,3),(346,135,205,2),(28,311,380,2),(537,45,90,2),
+    (99,136,186,3),(124,144,180,2),(274,280,314,2),(376,259,308,2),
+    (391,283,318,2),(944,416,451,2),
+]
+
+
 def dry_plate():
     # Same scale and crop as Gate 2. Neighbor interpolation stays on the same row,
     # so a streak crossing a horizontal wet reflection does not erase that reflection.
     original = Image.open(OUT / 'court.png').convert('RGB')
     result = original.copy()
-    for x, start, end, r in STREAKS:
-        left, right = x-r-1, x+r+1
-        for y in range(start, end+1):
-            blend = min(1, (y-start+1)/3, (end-y+1)/3)
-            for u in range(left+1, right):
-                t = (u-left)/(right-left)
-                a, b, pixel = original.getpixel((left,y)), original.getpixel((right,y)), original.getpixel((u,y))
-                result.putpixel((u,y), tuple(round(p*(1-blend)+(j*(1-t)+k*t)*blend) for p,j,k in zip(pixel,a,b)))
+    for source, strips in ((original, STREAKS), (result, FREEZE_STREAKS)):
+        for x, start, end, r in strips:
+            left, right = x-r-1, x+r+1
+            for y in range(start, end+1):
+                blend = min(1, (y-start+1)/3, (end-y+1)/3)
+                a, b = source.getpixel((left,y)), source.getpixel((right,y))
+                for u in range(left+1, right):
+                    t = (u-left)/(right-left)
+                    pixel = source.getpixel((u,y))
+                    result.putpixel((u,y), tuple(round(p*(1-blend)+(j*(1-t)+k*t)*blend) for p,j,k in zip(pixel,a,b)))
     result.save(OUT / 'court_dry.png', optimize=True)
 
 
-def new_key(name, ratio, pin):
-    im = Image.open(SOURCE / 'v11' / (name + '.png')).convert('RGBA')
+def new_key(name, ratio, pin, folder='v11'):
+    im = Image.open(SOURCE / folder / (name + '.png')).convert('RGBA')
     im = im.resize(tuple(round(x * ratio) for x in im.size), Image.Resampling.NEAREST)
     indexed = im.convert('RGB').quantize(48, dither=Image.Dither.NONE).convert('RGBA')
     indexed.putalpha(im.getchannel('A'))
@@ -73,6 +109,13 @@ def main():
         ('land', 100/650, (139,629)), ('run', 100/650,(241,650)),
         ('reload', 100/650,(143,652)), ('pass', 100/650,(138,652)),
         ('melee', 100/650,(272,644)), ('dodge', 100/650,(226,546)),
+    ]]
+    # Contact remains the original V1.1 swing key. These are distinct drawings
+    # using the same standing footprint and palette, not rotated weapon parts.
+    survivor += [new_key(name, ratio, pin, 'freeze') for name, ratio, pin in [
+        ('ready', 98/976, (420,976)), ('windup', 100/653,(246,653)),
+        ('swing', 99/638,(197,638)), ('follow', 99/639,(223,639)),
+        ('recover', 100/650,(161,650)),
     ]]
     walker += [new_key('walker_'+name, ratio, pin) for name, ratio, pin in [
         ('stride', 104/1440, (345,1440)),('lunge', 104/1447, (475,1447)),

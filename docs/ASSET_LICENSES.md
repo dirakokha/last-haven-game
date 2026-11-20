@@ -1,5 +1,10 @@
 # Asset source and license register
 
+## Art foundation freeze additions
+
+- `tools/side_review/source/freeze/{ready,windup,swing,follow,recover}.png`: five project-original AI-assisted bat keys derived from this project's approved survivor, locally keyed into editable RGBA PNGs. Repacked in `review_survivor.png` with the V1.1 contact key; no new public asset license is granted.
+- `court_dry.png` received only additional local rain-streak retouch using the existing project-owned source. Runtime rain and recorded/Foley audio files, source attribution and bus routing are unchanged from V1.1.
+
 ## Art Direction V1.1: runtime art and recorded audio
 
 `review_survivor.png`, `review_walker.png`: project-original AI-assisted keys, with local keying, palette reduction and foot-pin registration. Ten new transparent editable PNGs are in `tools/side_review/source/v11/`. No outside image references or public license grant. `court_dry.png`: masked streak retouch of `tools/side_review/source/court_plate.png` at the approved gameplay crop, with wet reflections retained. `lamp.png`/`review_case.png`: original Gate 2 local graphics. `side_review_rain.gd` and `side_effects.gd` weather/impact/casing visuals use local procedural drawing. This register does not license the project's original art, code or rain. No Sonniss clips or other redistributable-library restrictions were used.

@@ -25,6 +25,8 @@ var land_pose_left := 0.0
 var injury_left := 0.0
 var down := false
 var effort_left := 0.0
+var has_physics_sample := false
+var landing_step := false
 
 func _physics_process(delta: float) -> void:
 	var grounded := is_on_floor()
@@ -49,12 +51,13 @@ func _physics_process(delta: float) -> void:
 	if grounded and jump_buffer > 0.0 and dodge_left <= 0.0:
 		velocity.y = -sqrt(2.0 * gravity * jump_height)
 		jump_buffer = 0.0
-		jump_pose_left = 0.115
+		jump_pose_left = 0.067
 		land_pose_left = 0.0
 		launched.emit()
 	elif not grounded:
 		velocity.y = minf(velocity.y + gravity * delta, 800.0)
 	velocity.x = dodge_direction * 365.0 if dodge_left > 0.0 else axis * (run_speed if running else walk_speed)
+	var dodging := dodge_left > 0.0
 	dodge_left = maxf(0.0, dodge_left - delta)
 	move_and_slide()
 	var on_ground := is_on_floor()
@@ -64,17 +67,21 @@ func _physics_process(delta: float) -> void:
 			if contact.get_normal().y < -0.75:
 				ground_surface = contact.get_collider().get_meta("surface", &"concrete")
 				break
-	if not grounded and on_ground:
+	if not grounded and on_ground and has_physics_sample:
 		land_pose_left = 0.10
+		landing_step = true
 		stride = 0.0
 		footfall.emit(false, ground_surface)
 		landed.emit()
+	has_physics_sample = true
 	var distance := absf(position.x - before)
-	var moving := grounded and on_ground and distance > 0.025 and dodge_left == 0.0
+	var moving := grounded and on_ground and distance > 0.025 and not dodging
 	if moving:
 		if not gait_moving:
 			stride = 0.0
-			footfall.emit(running, ground_surface)
+			if not landing_step:
+				footfall.emit(running, ground_surface)
+			landing_step = false
 		var pace := 53.0 if running else 44.0
 		stride += distance / pace
 		if stride >= 1.0:
@@ -85,5 +92,7 @@ func _physics_process(delta: float) -> void:
 			exerted.emit()
 	else:
 		stride = 0.0
+		if not on_ground or land_pose_left <= 0.0:
+			landing_step = false
 	gait_moving = moving
 	gait_running = moving and running
