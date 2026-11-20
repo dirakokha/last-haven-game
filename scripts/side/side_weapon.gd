@@ -144,9 +144,8 @@ func resolve_bat_contact() -> void:
 	if strike.is_empty():
 		return
 	if strike.collider is SideWalker:
-		if strike.collider.hp <= 0:
-			return
-		strike.collider.hurt(31, bat_facing * 220.0)
-		hit.emit(strike.position, &"melee")
+		var walker := strike.collider as SideWalker
+		if walker.hurt(31, bat_facing * 220.0) > 0:
+			hit.emit(strike.position, &"melee")
 	else:
 		hit.emit(strike.position, strike.collider.get_meta("surface", &"concrete"))

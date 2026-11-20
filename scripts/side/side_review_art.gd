@@ -42,7 +42,7 @@ func player_pose(actor: SidePlayer, gun: SideWeapon) -> void:
 	var key := locomotion_pose(actor)
 	var recoil := 0.0
 	var side: int = actor.facing
-	if actor.down:
+	if actor.vitals.is_depleted():
 		key = Hero.LOW
 	elif gun.bat_phase != SideWeapon.BatPhase.NONE:
 		key = BAT_POSES[gun.bat_phase]
@@ -61,7 +61,7 @@ func player_pose(actor: SidePlayer, gun: SideWeapon) -> void:
 		key = Hero.RELOAD
 	pose(key, side < 0)
 	offset.x += recoil
-	modulate = Color("e2b4ad") if actor.injury_left > 0.0 and not actor.down else Color.WHITE
+	modulate = Color("e2b4ad") if actor.injury_left > 0.0 and not actor.vitals.is_depleted() else Color.WHITE
 
 func locomotion_pose(actor: SidePlayer) -> int:
 	if actor.dodge_left > 0.0:
@@ -85,7 +85,7 @@ func armed_pose(actor: SidePlayer) -> int:
 
 func walker_pose(actor: SideWalker) -> void:
 	var key := Infected.GUARD
-	if actor.hp <= 0:
+	if actor.vitals.is_depleted():
 		key = Infected.HIT if actor.death_left > 0.0 else Infected.DEATH
 	elif actor.hit_left > 0.0:
 		key = Infected.HIT

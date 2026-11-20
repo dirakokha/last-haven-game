@@ -7,7 +7,7 @@ const TRANSFER := &"side_transfer"
 @export var room_width := 1500
 @export var indoor := false
 var world := Node2D.new()
-var player := SidePlayer.new()
+var player: SidePlayer
 var weapon := SideWeapon.new()
 var camera := Camera2D.new()
 var walker: SideWalker
@@ -17,11 +17,12 @@ var hud := SideHUD.new()
 var effects := SideEffects.new()
 var rain_enabled := true
 var portals: Array[SidePortal] = []
-var health := 100
-var immune := 0.0
-var checkpoint_hp := 65
+# This snapshot is only needed in a room with no live Walker instance.
+var _absent_walker_hp := 0
 var transitioning := false
-var defeated := false
+var defeated: bool:
+	get:
+		return player != null and player.vitals.is_depleted()
 
 func _ready() -> void:
 	Input.set_default_cursor_shape(Input.CURSOR_ARROW)
@@ -35,10 +36,11 @@ func _ready() -> void:
 	var marker := get_node_or_null(NodePath(String(transfer.get("arrival", &"Start")))) as Marker2D
 	if marker == null:
 		marker = $Start
-	health = int(transfer.get("health", 100))
+	player = SidePlayer.new(int(transfer.get("health", SidePlayer.MAX_HEALTH)))
+	player.vitals.depleted.connect(_on_player_depleted)
 	weapon.magazine = int(transfer.get("magazine", SideWeapon.CAPACITY))
 	weapon.reserve = int(transfer.get("reserve", 36))
-	checkpoint_hp = int(transfer.get("walker_hp", 65))
+	var walker_spawn_hp := int(transfer.get("walker_hp", SideWalker.MAX_HEALTH))
 
 	add_child(world)
 	add_solid(Rect2(0, FLOOR, room_width, 120), &"concrete")
@@ -70,19 +72,20 @@ func _ready() -> void:
 	effects.casing_landed.connect(audio.casing)
 	player.footfall.connect(func(running: bool, surface: StringName) -> void: audio.step(player.global_position, running, surface))
 	player.exerted.connect(func() -> void: audio.breath(player.global_position))
-	if not indoor and checkpoint_hp > 0:
-		walker = SideWalker.new()
+	player.damaged.connect(func(_amount: int) -> void: audio.pain(player.global_position))
+	if not indoor and walker_spawn_hp > 0:
+		walker = SideWalker.new(walker_spawn_hp)
 		walker.position = Vector2(876, FLOOR)
-		walker.hp = checkpoint_hp
 		walker.target = player
 		walker.collision_layer = 4
 		walker.collision_mask = 1 | 2
 		add_shape(walker, Vector2(31, 99), Vector2(0, -49.5))
 		walker.strikes.connect(take_damage)
 		walker.vocal.connect(audio.vocal)
-		walker.fell.connect(func() -> void: checkpoint_hp = 0)
 		world.add_child(walker)
 		walker.add_child(SideReviewArt.new())
+	else:
+		_absent_walker_hp = walker_spawn_hp
 	camera.limit_left = 0
 	camera.limit_right = room_width
 	camera.limit_top = 0
@@ -94,6 +97,8 @@ func _ready() -> void:
 	add_child(view)
 	view.set_weather(rain_enabled)
 	add_child(hud)
+	if defeated:
+		_on_player_depleted()
 
 func add_shape(body: CollisionObject2D, size: Vector2, offset: Vector2) -> void:
 	var rect := RectangleShape2D.new()
@@ -112,7 +117,6 @@ func add_solid(rect: Rect2, material: StringName) -> StaticBody2D:
 	return body
 
 func _process(delta: float) -> void:
-	immune = maxf(0.0, immune - delta)
 	var target := clampf(player.position.x + 70.0 * player.facing, 480.0, room_width - 480.0)
 	camera.position.x = lerpf(camera.position.x, target, 1.0 - exp(-delta * 9.0))
 	var prompt := ""
@@ -133,10 +137,9 @@ func travel(portal: SidePortal) -> void:
 		return
 	transitioning = true
 	world.process_mode = Node.PROCESS_MODE_DISABLED
-	if is_instance_valid(walker):
-		checkpoint_hp = walker.hp
-	get_tree().set_meta(TRANSFER, {"arrival": portal.arrival, "health": health,
-		"magazine": weapon.magazine, "reserve": weapon.reserve, "walker_hp": checkpoint_hp})
+	var walker_hp := walker.vitals.health if is_instance_valid(walker) else _absent_walker_hp
+	get_tree().set_meta(TRANSFER, {"arrival": portal.arrival, "health": player.vitals.health,
+		"magazine": weapon.magazine, "reserve": weapon.reserve, "walker_hp": walker_hp})
 	await hud.fade_to(1.0)
 	if get_tree().change_scene_to_file(portal.destination) != OK:
 		get_tree().remove_meta(TRANSFER)
@@ -146,17 +149,12 @@ func travel(portal: SidePortal) -> void:
 		hud.fade_to(0.0)
 
 func take_damage(amount: int) -> void:
-	if immune > 0.0 or transitioning or defeated:
-		return
-	health = maxi(0, health - amount)
-	player.injury_left = 0.24
-	audio.pain(player.global_position)
-	immune = 0.7
-	if health == 0:
-		defeated = true
-		player.down = true
-		# Freeze rules while letting the player cel show the defeat key.
-		world.process_mode = Node.PROCESS_MODE_DISABLED
+	if not transitioning:
+		player.take_damage(amount)
+
+func _on_player_depleted() -> void:
+	# Freeze game rules; the separately processing art/HUD show defeat.
+	world.process_mode = Node.PROCESS_MODE_DISABLED
 
 func toggle_rain() -> void:
 	rain_enabled = not rain_enabled

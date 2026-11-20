@@ -33,9 +33,9 @@ func resolve_contact(hit: Dictionary) -> void:
 	var collider := hit.get("collider") as CollisionObject2D
 	if collider == null:
 		return
-	if collider.has_method("hurt"):
-		collider.hurt(damage, direction * 65.0)
-		contact.emit(hit.position, &"infected")
+	if collider is SideWalker:
+		if collider.hurt(damage, direction * 65.0) > 0:
+			contact.emit(hit.position, &"infected")
 	else:
 		contact.emit(hit.position, collider.get_meta("surface", &"concrete"))
 

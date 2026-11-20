@@ -11,6 +11,9 @@ var last_material := &""
 var contact_count := 0
 var case_steps := 0
 var melee_hits := 0
+var walker_deaths := 0
+var player_reactions := 0
+var player_deaths := 0
 var hit_phase := SideWeapon.BatPhase.NONE
 var footsteps: Array[int] = []
 var reload_stages: Array[StringName] = []
@@ -201,7 +204,7 @@ func run() -> void:
 	await ticks(3)
 	gun.shoot()
 	await ticks(17)
-	check(room.walker.hp == 65 and gun.magazine == 10 and last_material == &"metal" and absf(impact_point.x - 465.0) < 0.2, "metal cover stops projectile at actual contact")
+	check(room.walker.vitals.health == 65 and gun.magazine == 10 and last_material == &"metal" and absf(impact_point.x - 465.0) < 0.2, "metal cover stops projectile at actual contact")
 	check(not room.effects.flecks.any(func(f: SideEffects.Fleck) -> bool: return f.kind == &"blood"), "no blood on metal")
 	tall_cover.queue_free()
 	actor.position = Vector2(570, 425)
@@ -211,7 +214,7 @@ func run() -> void:
 	check(last_material == &"infected" and absf(impact_point.y - (425.0 + SideWeapon.SHOULDER_Y)) < 0.2, "infected contact at horizontal projectile height")
 	check(room.effects.flecks.any(func(f: SideEffects.Fleck) -> bool: return f.kind == &"blood" and f.p.distance_to(impact_point) < 8.0), "blood originates at the infected hit")
 	await ticks(14)
-	check(room.walker.hp == 41 and gun.magazine == 9, "side-view projectile uses original damage")
+	check(room.walker.vitals.health == 41 and gun.magazine == 9, "side-view projectile uses original damage")
 	await pulse("reload")
 	check(gun.reload_left > 0.0, "original reload command")
 	await ticks(72)
@@ -230,7 +233,7 @@ func run() -> void:
 	await click(Vector2(950, 510))
 	check(fired_side == -1 and is_equal_approx(fired.y, actor.global_position.y + SideWeapon.SHOULDER_Y), "left LMB ignores cursor below/right")
 	await ticks(5)
-	check(room.walker.hp == 17 and last_material == &"infected", "left projectile reaches an actual infected collider")
+	check(room.walker.vitals.health == 17 and last_material == &"infected", "left projectile reaches an actual infected collider")
 	actor.position = Vector2(703, 425)
 	await ticks(3)
 	check(room.hud.prompt.visible, "contextual Persian prompt appears at grounded doorway")
@@ -241,13 +244,13 @@ func run() -> void:
 	await ticks(4)
 	check(room.indoor and absf(room.player.position.x - 265.0) < 1.0, "interior loaded at linked marker")
 	check(not room.rain_enabled and room.audio.rain == null and room.audio.warehouse.playing, "interior uses its own ambience and remembers F2")
-	check(room.health == 85 and room.weapon.magazine == 11 and room.weapon.reserve == 33, "transition carries combat state")
+	check(room.player.vitals.health == 85 and room.weapon.magazine == 11 and room.weapon.reserve == 33, "transition carries combat state")
 	await pulse("side_entrance")
 	await scene_changed
 	room = current_scene as SideRoom
 	await ticks(5)
 	check(not room.indoor and absf(room.player.position.x - 680.0) < 1.0, "return reaches the linked exterior marker")
-	check(is_instance_valid(room.walker) and room.walker.hp == 17, "return cannot reset Walker damage")
+	check(is_instance_valid(room.walker) and room.walker.vitals.health == 17, "return cannot reset Walker damage")
 	if not is_instance_valid(room.walker):
 		restore_preferences()
 		quit(1)
@@ -262,7 +265,22 @@ func run() -> void:
 	await ticks(3)
 	check(room.walker.mode == SideWalker.Motion.WARN, "horizontal close attack announces a warning")
 	await ticks(38)
-	check(room.health == 70, "Walker still deals the original 15 damage")
+	check(room.player.vitals.health == 70, "Walker still deals the original 15 damage")
+	await ticks(2)
+	var pain_voices: Array[AudioStreamPlayer2D] = room.audio.pools[&"Player"]
+	check(room.player.injury_left > 0.0 and pain_voices.any(func(voice: AudioStreamPlayer2D) -> bool:
+		return voice.playing and voice.stream == SideReviewAudio.CLIPS[&"hurt"]),
+		"accepted Walker damage starts existing Player reaction and pain cue")
+	check(room.hud.vitals.text == room.hud.tr("سلامت  %s") % "۷۰"
+		and is_equal_approx(room.hud.health_fill.size.x, room.hud.health_track.size.x * 0.7),
+		"Persian health label and fill read authoritative HP")
+	room.player.damaged.connect(func(_amount: int) -> void: player_reactions += 1)
+	room.player.vitals.depleted.connect(func() -> void: player_deaths += 1)
+	room.take_damage(15)
+	check(room.player.vitals.health == 70 and player_reactions == 0, "immunity rejects another hit and reaction in the existing window")
+	room.walker.vocal.connect(func(_at: Vector2, _runner: bool, cue: StringName) -> void:
+		if cue == &"death":
+			walker_deaths += 1)
 	gun = room.weapon
 	gun.hit.connect(func(_at: Vector2, material: StringName) -> void:
 		melee_hits += int(material == &"melee")
@@ -274,7 +292,7 @@ func run() -> void:
 	check(gun.bat_phase == SideWeapon.BatPhase.READY and player_art.pose_index == SideReviewArt.Hero.BAT_READY, "F equips the ready drawing")
 	await wait_bat_phase(gun, SideWeapon.BatPhase.WINDUP)
 	check(gun.bat_phase == SideWeapon.BatPhase.WINDUP and player_art.pose_index == SideReviewArt.Hero.BAT_WINDUP, "bat displays windup before contact")
-	check(room.walker.hp == 17 and melee_hits == 0, "no damage or impact while winding up")
+	check(room.walker.vitals.health == 17 and melee_hits == 0, "no damage or impact while winding up")
 	await wait_bat_phase(gun, SideWeapon.BatPhase.SWING)
 	check(gun.bat_phase == SideWeapon.BatPhase.SWING and player_art.pose_index == SideReviewArt.Hero.BAT_SWING, "bat displays pre-contact swing")
 	await wait_bat_phase(gun, SideWeapon.BatPhase.IMPACT)
@@ -284,7 +302,11 @@ func run() -> void:
 	check(voices.any(func(voice: AudioStreamPlayer2D) -> bool:
 		return voice.playing and voice.stream == SideReviewAudio.CLIPS[&"melee"]), "same hit event starts licensed melee cue on Weapons")
 	check(room.effects.flecks.any(func(f: SideEffects.Fleck) -> bool: return f.kind == &"strike"), "actual melee hit triggers impact FX")
-	check(room.walker.hp == 0 and room.walker.collision_layer == 0 and room.checkpoint_hp == 0, "bat finishes Walker and corpse is nonblocking")
+	check(room.walker.vitals.health == 0 and room.walker.collision_layer == 0 and room.walker.collision_mask == 0,
+		"bat finishes Walker and corpse is nonblocking")
+	var knocked_at_death: float = room.walker.knocked
+	check(room.walker.hurt(99, 999.0) == 0 and walker_deaths == 1 and room.walker.knocked == knocked_at_death,
+		"repeated corpse damage cannot replay death or apply knockback")
 	await wait_bat_phase(gun, SideWeapon.BatPhase.FOLLOW)
 	check(player_art.pose_index == SideReviewArt.Hero.BAT_FOLLOW, "bat displays follow-through")
 	await wait_bat_phase(gun, SideWeapon.BatPhase.RECOVER)
@@ -298,14 +320,26 @@ func run() -> void:
 	f2()
 	check(room.view.weather.visible and room.audio.rain.playing, "F2 turns rain back on after round trip")
 	f2()
-	room.immune = 0.0
 	room.take_damage(999)
+	check(room.player.vitals.health == 0 and player_reactions == 1 and player_deaths == 1,
+		"after immunity expires a lethal hit commits once and reacts once")
+	check(room.defeated and room.world.process_mode == Node.PROCESS_MODE_DISABLED,
+		"player depletion freezes the world")
+	room.take_damage(999)
+	check(player_reactions == 1 and player_deaths == 1, "defeated player cannot react or die again")
+	await ticks()
+	check(room.hud.result.visible and room.hud.health_fill.size.x == 0.0, "defeat panel visible with authoritative zero HP")
+	check(player_art.pose_index == SideReviewArt.Hero.LOW, "player art still presents defeat while simulation is frozen")
 	await pulse("restart")
 	if current_scene == null or current_scene == room:
 		await scene_changed
 	room = current_scene as SideRoom
 	await ticks()
-	check(room.health == 100 and not room.rain_enabled and not room.audio.rain.playing, "defeat restart resets combat but retains F2 off")
+	check(room.player.vitals.health == 100 and not room.rain_enabled and not room.audio.rain.playing, "defeat restart resets combat but retains F2 off")
+	check(not room.defeated and room.world.process_mode != Node.PROCESS_MODE_DISABLED
+		and is_instance_valid(room.walker) and room.walker.vitals.health == 65
+		and room.weapon.magazine == 12 and room.weapon.reserve == 36,
+		"restart restores original encounter and ammunition")
 	room.weapon.magazine = 0
 	reload_stages.clear()
 	room.weapon.handling.connect(func(_at: Vector2, stage: StringName) -> void: reload_stages.append(stage))
@@ -333,15 +367,35 @@ func run() -> void:
 	await ticks(3)
 	await pulse("bat")
 	await ticks(13)
-	check(room.weapon.bat_facing == -1 and last_material == &"metal" and walker.hp == 65, "left bat respects nearest obstruction")
+	check(room.weapon.bat_facing == -1 and last_material == &"metal" and walker.vitals.health == 65, "left bat respects nearest obstruction")
 	obstruction.queue_free()
 	await ticks(30)
 	await pulse("bat")
 	await ticks(13)
-	check(last_material == &"melee" and walker.hp == 34, "left bat contacts infected only when clear")
+	check(last_material == &"melee" and walker.vitals.health == 34, "left bat contacts infected only when clear")
+	# The earlier round trip verified an injured Walker. Verify a firearm kill
+	# and a second round trip with zero Walker HP, not a live duplicate.
+	await ticks(25)
+	room.weapon.shoot()
+	await ticks(16)
+	check(walker.vitals.health == 10, "firearm still inflicts original damage after melee")
+	room.weapon.shoot()
+	await ticks(16)
+	check(walker.vitals.is_depleted() and walker.collision_layer == 0, "firearm kill disables Walker collision")
+	room.player.position = Vector2(703, 425)
+	await ticks(3)
+	await pulse("side_entrance")
+	await scene_changed
+	room = current_scene as SideRoom
+	await ticks(4)
+	await pulse("side_entrance")
+	await scene_changed
+	room = current_scene as SideRoom
+	await ticks(4)
+	check(not room.indoor and not is_instance_valid(room.walker), "defeated Walker snapshot persists across both doors")
 	unload_current_scene()
 	await ticks(4)
 	restore_preferences()
 	if failures == 0:
-		print("PASS: foundation freeze side-view movement, directional LMB/muzzle, finite sweep and contacts, reload, Walker/melee, audio routing, rain F2/persistence, portal and scale")
+		print("PASS: foundation freeze side-view movement, directional LMB/muzzle, finite sweep and contacts, reload, Walker/melee, audio routing, rain F2/persistence, portal and scale; authoritative vitals, immunity, defeat and restart")
 	quit(0 if failures == 0 else 1)
