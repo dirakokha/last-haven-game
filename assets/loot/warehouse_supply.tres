@@ -17,5 +17,6 @@ quantity = 5
 
 [resource]
 script = ExtResource("1_def")
+definition_id = &"loot.warehouse.supply"
 capacity = 4
 entries = Array[ExtResource("2_entry")]([SubResource("LootEntry_ammo"), SubResource("LootEntry_scrap")])

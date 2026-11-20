@@ -26,6 +26,7 @@ func definitions_and_transfers() -> void:
 	invalid_entry.quantity = 0
 	check(not invalid_entry.is_valid() and SUPPLY.entries[0].is_valid(), "quantity must be positive")
 	var bad := LootContainerDef.new()
+	bad.definition_id = &"test.loot.invalid_recipe"
 	bad.entries = [SUPPLY.entries[0], SUPPLY.entries[0]]
 	check(bad.create_inventory(catalog) == null, "a recipe cannot contain duplicate item IDs")
 	bad.entries = SUPPLY.entries.duplicate()
@@ -73,6 +74,39 @@ func definitions_and_transfers() -> void:
 		and source.count(AMMO) == 24 and source.count(SCRAP) == 5,
 		"placement lookup reuses runtime state and reset restores its recipe")
 
+func placement_identity() -> void:
+	var state := SideRunState.new()
+	var original := state.container_inventory(&"test.identity", SUPPLY)
+	var copy := SUPPLY.duplicate() as LootContainerDef
+	check(original != null and state.container_inventory(&"test.identity", SUPPLY) == original
+		and state.container_inventory(&"test.identity", copy) == original,
+		"identical authored values reuse the inventory even on a different definition resource instance")
+	copy.definition_id = &"test.loot.conflict"
+	check(state.container_inventory(&"test.identity", copy) == null, "same placement rejects a different definition ID")
+	copy.definition_id = SUPPLY.definition_id
+	copy.capacity += 1
+	check(state.container_inventory(&"test.identity", copy) == null, "same placement and definition ID reject different capacity")
+	copy.capacity = SUPPLY.capacity
+	var entry := LootEntryDef.new()
+	entry.item = ItemCatalog.AMMO_9MM
+	entry.quantity = 23
+	copy.entries = [entry, SUPPLY.entries[1]]
+	check(state.container_inventory(&"test.identity", copy) == null, "same placement and definition ID reject different quantities")
+	var different_rules := ItemCatalog.AMMO_9MM.duplicate() as ItemDef
+	different_rules.max_stack -= 1
+	entry.item = different_rules
+	entry.quantity = 24
+	check(state.container_inventory(&"test.identity", copy) == null, "same placement rejects incompatible item rules")
+	copy.entries = SUPPLY.entries.duplicate()
+	copy.definition_id = &""
+	check(copy.create_inventory(ItemCatalog.new()) == null, "blank container definition ID is invalid")
+	copy.definition_id = &"Bad..Loot"
+	check(copy.create_inventory(ItemCatalog.new()) == null, "malformed container definition ID is invalid")
+	var independent := state.container_inventory(&"test.other", SUPPLY)
+	check(state.container_inventory(&"test.identity", SUPPLY) == original and original.count(AMMO) == 24
+		and original.remove(AMMO, 1) and independent != original and independent.count(AMMO) == 24,
+		"rejected requests never replace stock and different placement IDs stay independent")
+
 func settle(count: int = 3) -> void:
 	for i in range(count):
 		await physics_frame
@@ -98,6 +132,7 @@ func move_actor(room: SideRoom, point: Vector2) -> void:
 
 func run() -> void:
 	definitions_and_transfers()
+	placement_identity()
 	create_timer(20.0).timeout.connect(func() -> void:
 		push_error("Loot integration timed out")
 		quit(1))

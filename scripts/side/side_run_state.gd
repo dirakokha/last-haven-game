@@ -7,7 +7,7 @@ var _inventory: SideInventory
 var inventory: SideInventory:
 	get: return _inventory
 var _catalog: ItemCatalog
-var _containers: Dictionary[StringName, SideInventory] = {}
+var _containers: Dictionary[StringName, Dictionary] = {}
 var _collected: Dictionary[StringName, bool] = {}
 
 func _init(catalog: ItemCatalog = null) -> void:
@@ -28,19 +28,31 @@ func record_collected(placement_id: StringName) -> void:
 	_collected[placement_id] = true
 
 func container_inventory(placement_id: StringName, definition: LootContainerDef) -> SideInventory:
-	if placement_id == &"" or definition == null:
+	if placement_id == &"":
 		return null
-	if not _containers.has(placement_id):
-		var contents := definition.create_inventory(_catalog)
-		if contents == null:
+	var signature := definition.configuration_signature(_catalog) if definition != null else []
+	if signature.is_empty():
+		var requested_id := definition.definition_id if definition != null else &""
+		push_warning("Loot placement '%s' rejected invalid or catalog-incompatible definition '%s'." % [placement_id, requested_id])
+		return null
+	if _containers.has(placement_id):
+		var registered: Dictionary = _containers[placement_id]
+		if registered.definition_id != definition.definition_id or registered.signature != signature:
+			push_warning("Loot placement '%s' already uses definition '%s'; requested '%s' does not match its ID or authored configuration." %
+				[placement_id, registered.definition_id, definition.definition_id])
 			return null
-		_containers[placement_id] = contents
-	return _containers[placement_id]
+		return registered.inventory
+	var contents := definition.create_inventory(_catalog)
+	if contents == null:
+		return null
+	_containers[placement_id] = {"inventory": contents, "definition_id": definition.definition_id, "signature": signature}
+	return contents
 
 func reset() -> bool:
 	if not inventory.reset():
 		return false
-	for contents in _containers.values():
+	for registered in _containers.values():
+		var contents: SideInventory = registered.inventory
 		if not contents.reset():
 			return false
 	_collected.clear()
