@@ -3,8 +3,8 @@ from pathlib import Path
 from PIL import Image, ImageDraw, ImageFont, features
 
 ROOT=Path(__file__).resolve().parents[2]
-ASSET=ROOT/'assets/side_review'
-DEST=ROOT/'docs/review'
+ASSET=ROOT/'build/gate2-reference'
+DEST=ASSET
 FONT=ROOT/'assets/fonts/Vazirmatn-Regular.ttf'
 
 

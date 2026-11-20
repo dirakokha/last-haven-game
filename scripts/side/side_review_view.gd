@@ -1,7 +1,7 @@
 class_name SideReviewView
 extends Node2D
 
-const COURT := preload("res://assets/side_review/court.png")
+const COURT := preload("res://assets/side_review/court_dry.png")
 const CASE := preload("res://assets/side_review/review_case.png")
 const LAMP := preload("res://assets/side_review/lamp.png")
 var room: Node
@@ -55,9 +55,9 @@ func draw_actor_shadows() -> void:
 		var walker: SideWalker = room.walker
 		contact_shadow(walker.position.x, maxf(0.0, 425.0 - walker.position.y))
 
-func toggle_weather() -> void:
+func set_weather(enabled: bool) -> void:
 	if is_instance_valid(weather):
-		weather.visible = not weather.visible
+		weather.visible = enabled
 		weather.set_process(weather.visible)
 
 func toggle_shadows() -> void:

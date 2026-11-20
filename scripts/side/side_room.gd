@@ -14,6 +14,8 @@ var walker: SideWalker
 var view := SideReviewView.new()
 var audio := SideReviewAudio.new()
 var hud := SideHUD.new()
+var effects := SideEffects.new()
+var rain_enabled := true
 var portals: Array[SidePortal] = []
 var health := 100
 var immune := 0.0
@@ -22,10 +24,11 @@ var transitioning := false
 var defeated := false
 
 func _ready() -> void:
-	Input.set_default_cursor_shape(Input.CURSOR_CROSS)
+	Input.set_default_cursor_shape(Input.CURSOR_ARROW)
 	for node in get_children():
 		if node is SidePortal:
 			portals.append(node)
+	rain_enabled = SideWeatherPreferences.read()
 	var transfer := get_tree().get_meta(TRANSFER, {}) as Dictionary
 	if get_tree().has_meta(TRANSFER):
 		get_tree().remove_meta(TRANSFER)
@@ -48,15 +51,24 @@ func _ready() -> void:
 	player.collision_mask = 1 | 4
 	add_shape(player, Vector2(32, 96), Vector2(0, -48))
 	world.add_child(player)
+	var listener := AudioListener2D.new()
+	player.add_child(listener)
+	listener.make_current()
 	weapon.name = "Weapon"
 	player.add_child(weapon)
 	player.add_child(SideReviewArt.new())
 	add_child(audio)
-	audio.setup(not indoor)
+	audio.setup(not indoor, rain_enabled)
+	effects.z_index = 2
+	world.add_child(effects)
 	weapon.fired.connect(audio.fire)
-	weapon.reloading.connect(audio.reload)
-	weapon.hit.connect(audio.strike)
-	player.footfall.connect(func(running: bool) -> void: audio.step(player.global_position, running))
+	weapon.fired.connect(effects.firing)
+	weapon.handling.connect(audio.handling)
+	weapon.hit.connect(audio.impact)
+	weapon.hit.connect(effects.impact)
+	effects.casing_landed.connect(audio.casing)
+	player.footfall.connect(func(running: bool, surface: StringName) -> void: audio.step(player.global_position, running, surface))
+	player.exerted.connect(func() -> void: audio.breath(player.global_position))
 	if not indoor and checkpoint_hp > 0:
 		walker = SideWalker.new()
 		walker.position = Vector2(876, FLOOR)
@@ -66,7 +78,7 @@ func _ready() -> void:
 		walker.collision_mask = 1 | 2
 		add_shape(walker, Vector2(31, 99), Vector2(0, -49.5))
 		walker.strikes.connect(take_damage)
-		walker.warned.connect(audio.warning)
+		walker.vocal.connect(audio.vocal)
 		walker.fell.connect(func() -> void: checkpoint_hp = 0)
 		world.add_child(walker)
 		walker.add_child(SideReviewArt.new())
@@ -79,6 +91,7 @@ func _ready() -> void:
 	camera.make_current()
 	view.room = self
 	add_child(view)
+	view.set_weather(rain_enabled)
 	add_child(hud)
 
 func add_shape(body: CollisionObject2D, size: Vector2, offset: Vector2) -> void:
@@ -89,12 +102,13 @@ func add_shape(body: CollisionObject2D, size: Vector2, offset: Vector2) -> void:
 	shape.position = offset
 	body.add_child(shape)
 
-func add_solid(rect: Rect2, material: StringName) -> void:
+func add_solid(rect: Rect2, material: StringName) -> StaticBody2D:
 	var body := StaticBody2D.new()
 	body.position = rect.get_center()
 	body.set_meta("surface", material)
 	add_shape(body, rect.size, Vector2.ZERO)
 	world.add_child(body)
+	return body
 
 func _process(delta: float) -> void:
 	immune = maxf(0.0, immune - delta)
@@ -134,10 +148,17 @@ func take_damage(amount: int) -> void:
 	if immune > 0.0 or transitioning or defeated:
 		return
 	health = maxi(0, health - amount)
+	player.injury_left = 0.24
+	audio.pain(player.global_position)
 	immune = 0.7
 	if health == 0:
 		defeated = true
+		player.down = true
+		# Freeze rules while letting the player cel show the defeat key.
 		world.process_mode = Node.PROCESS_MODE_DISABLED
 
-func _exit_tree() -> void:
-	Input.set_default_cursor_shape(Input.CURSOR_ARROW)
+func toggle_rain() -> void:
+	rain_enabled = not rain_enabled
+	view.set_weather(rain_enabled)
+	audio.set_rain(rain_enabled)
+	SideWeatherPreferences.save(rain_enabled)

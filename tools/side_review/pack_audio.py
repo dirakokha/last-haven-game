@@ -7,7 +7,7 @@ import sys
 import wave
 
 ROOT = Path(__file__).resolve().parents[2]
-OUT = ROOT/'assets/side_review'
+OUT = ROOT/'build/gate2-reference'
 RATE=32000
 
 
@@ -71,4 +71,4 @@ if __name__=='__main__':
         (5.16,gun[1],1),(5.36,impact[0],.67),(6.22,walker[0],.72),(7.15,impact[0],.8)]:
         a=int(t*RATE)
         for i,v in enumerate(clip): demo[a+i]+=v*vol
-    encode(ROOT/'docs/review/side_audio_direction.wav',demo)
+    encode(OUT/'side_audio_direction.wav',demo)

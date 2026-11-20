@@ -2,23 +2,50 @@ class_name SideHUD
 extends CanvasLayer
 
 const FONT := preload("res://assets/fonts/Vazirmatn-Regular.ttf")
+const INK := Color("dce1d6")
+const MUTED := Color("a4b4ac")
+const ACCENT := Color("c9af79")
+var location: Label
+var weather: Label
 var vitals: Label
-var ammo: Label
+var condition: Label
+var instrument: Label
+var mag_count: Label
+var reserve_count: Label
+var gear: Label
 var prompt: Label
 var result: Label
 var veil: ColorRect
+var health_track: ColorRect
+var health_fill: ColorRect
 var failure := false
 
 func _ready() -> void:
 	process_mode = Node.PROCESS_MODE_ALWAYS
 	layer = 10
-	plate(Rect2(22, 22, 245, 60), "محوطهٔ بارگیری  /  ۰۴\nآخرین پناهگاه", 17)
-	vitals = plate(Rect2(742, 22, 196, 60), "", 17)
-	ammo = plate(Rect2(742, 457, 196, 60), "", 17)
-	plate(Rect2(22, 457, 690, 60), "A / D حرکت   ·   فاصله پرش   ·   شیفت دویدن   ·   کنترل جاخالی   ·   ماوس نشانه و شلیک\nR خشاب   ·   F ضربه   ·   F2 باران   ·   F3 سایه   ·   F11 تمام‌صفحه", 15)
-	prompt = plate(Rect2(312, 362, 336, 40), "", 19)
+	frame(Rect2(22, 22, 178, 54))
+	location = label(Rect2(30, 25, 162, 26), "", 16)
+	weather = label(Rect2(30, 49, 162, 19), "", 13, MUTED)
+	frame(Rect2(744, 22, 194, 76))
+	vitals = label(Rect2(755, 26, 172, 26), "", 18)
+	health_track = rule(Rect2(756, 56, 170, 4), Color("303b3c"))
+	health_fill = rule(Rect2(756, 56, 170, 4), Color("87a291"))
+	condition = label(Rect2(755, 64, 172, 24), "", 14, MUTED)
+	frame(Rect2(723, 429, 215, 89))
+	instrument = label(Rect2(734, 432, 193, 26), "", 17)
+	rule(Rect2(735, 461, 190, 1), Color("4c5450"))
+	mag_count = label(Rect2(821, 464, 106, 24), "", 16, ACCENT)
+	reserve_count = label(Rect2(734, 464, 84, 24), "", 14, MUTED)
+	gear = label(Rect2(734, 489, 193, 21), "", 13, MUTED)
+	label(Rect2(22, 468, 544, 20), tr("حرکت %s   ·   پرش: فاصله   ·   دویدن: شیفت   ·   جاخالی: کنترل") % ltr("A / D"), 14, MUTED, HORIZONTAL_ALIGNMENT_LEFT)
+	label(Rect2(22, 492, 544, 20), tr("شلیک: کلیک چپ   ·   تعویض خشاب %s   ·   ضربه %s") % [ltr("R"), ltr("F")], 14, MUTED, HORIZONTAL_ALIGNMENT_LEFT)
+	prompt = label(Rect2(312, 366, 336, 38), "", 18)
+	prompt.add_theme_stylebox_override("normal", backing())
+	prompt.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
 	prompt.hide()
-	result = plate(Rect2(304, 202, 352, 112), "", 24)
+	result = label(Rect2(304, 202, 352, 112), "", 23)
+	result.add_theme_stylebox_override("normal", backing())
+	result.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
 	result.hide()
 	veil = ColorRect.new()
 	veil.color = Color("101822")
@@ -27,47 +54,79 @@ func _ready() -> void:
 	add_child(veil)
 	fade_to(0.0)
 
-func plate(bounds: Rect2, text: String, size: int) -> Label:
+func backing() -> StyleBoxFlat:
 	var panel := StyleBoxFlat.new()
-	panel.bg_color = Color(0.038, 0.069, 0.092, 0.9)
-	panel.border_color = Color("688789")
+	panel.bg_color = Color(0.042, 0.064, 0.073, 0.94)
+	panel.border_color = Color("75837a")
 	panel.border_width_right = 2
 	panel.border_width_bottom = 1
-	var label := Label.new()
-	label.position = bounds.position
-	label.size = bounds.size
-	label.text_direction = Control.TEXT_DIRECTION_RTL
-	label.language = "fa"
-	label.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
-	label.vertical_alignment = VERTICAL_ALIGNMENT_CENTER
-	label.mouse_filter = Control.MOUSE_FILTER_IGNORE
-	label.add_theme_font_override("font", FONT)
-	label.add_theme_font_size_override("font_size", size)
-	label.add_theme_stylebox_override("normal", panel)
-	label.add_theme_color_override("font_color", Color("e0e4d6"))
-	label.text = text
-	add_child(label)
-	return label
+	return panel
+
+func frame(bounds: Rect2) -> void:
+	var panel := Panel.new()
+	panel.position = bounds.position
+	panel.size = bounds.size
+	panel.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	panel.add_theme_stylebox_override("panel", backing())
+	add_child(panel)
+
+func rule(bounds: Rect2, tint: Color) -> ColorRect:
+	var rect := ColorRect.new()
+	rect.position = bounds.position
+	rect.size = bounds.size
+	rect.color = tint
+	rect.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	add_child(rect)
+	return rect
+
+func label(bounds: Rect2, text: String, size: int, tint: Color = INK, align: HorizontalAlignment = HORIZONTAL_ALIGNMENT_RIGHT) -> Label:
+	var item := Label.new()
+	item.position = bounds.position
+	item.size = bounds.size
+	item.text_direction = Control.TEXT_DIRECTION_RTL
+	item.language = "fa"
+	item.horizontal_alignment = align
+	item.vertical_alignment = VERTICAL_ALIGNMENT_CENTER
+	item.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	item.add_theme_font_override("font", FONT)
+	item.add_theme_font_size_override("font_size", size)
+	item.add_theme_color_override("font_color", tint)
+	item.text = text
+	add_child(item)
+	return item
 
 func refresh(room: Node, entry: String) -> void:
-	vitals.text = "سلامت   " + digits(room.health)
-	if room.checkpoint_hp <= 0 and not room.indoor:
-		vitals.text += "\nمحوطه امن شد"
-	ammo.text = ("در حال تعویض خشاب" if room.weapon.reload_left > 0.0 else "خشاب  /  ذخیره") \
-		+ "\n" + digits(room.weapon.magazine) + "  /  " + digits(room.weapon.reserve)
+	location.text = tr("انبار" if room.indoor else "محوطهٔ بارگیری")
+	weather.text = tr("باران روشن %s" if room.rain_enabled else "باران خاموش %s") % ltr("F2")
+	vitals.text = tr("سلامت  %s") % digits(room.health)
+	health_fill.size.x = health_track.size.x * clampf(room.health / 100.0, 0.0, 1.0)
+	health_fill.color = Color("a0544e") if room.health <= 30 else Color("87a291")
+	condition.text = tr("از پا افتاده" if room.defeated else ("آسیب‌دیده" if room.health < 100 else "سالم"))
+	if room.weapon.swing_left > 0.0 and not room.defeated:
+		instrument.text = tr("چوب‌دست  ·  ضربه")
+	elif room.weapon.reload_left > 0.0 and not room.defeated:
+		instrument.text = tr("تپانچه  ·  تعویض خشاب")
+	else:
+		instrument.text = tr("تپانچه  ·  خشاب خالی" if room.weapon.magazine == 0 else "تپانچه")
+	mag_count.text = tr("خشاب %s") % digits(room.weapon.magazine)
+	reserve_count.text = tr("ذخیره %s") % digits(room.weapon.reserve)
+	gear.text = tr("چوب‌دست  ·  ضربه %s") % ltr("F")
 	prompt.visible = (entry != "" or failure) and not room.defeated
-	prompt.text = "ورود در دسترس نیست" if failure else entrance_key() + " \u2014 " + entry
+	prompt.text = tr("ورود در دسترس نیست") if failure else tr("%s — %s") % [entrance_key(), entry]
 	result.visible = room.defeated or get_tree().paused
 	if room.defeated:
-		result.text = "بازمانده از پا افتاد\nانتر: شروع دوباره"
+		result.text = tr("بازمانده از پا افتاد\nانتر: شروع دوباره")
 	elif get_tree().paused:
-		result.text = "توقف\nگریز: ادامهٔ بازی"
+		result.text = tr("توقف\nگریز: ادامهٔ بازی")
+
+func ltr(text: String) -> String:
+	return "\u2066" + text + "\u2069"
 
 func entrance_key() -> String:
 	var keys := InputMap.action_get_events("side_entrance")
 	if not keys.is_empty() and keys[0] is InputEventKey:
-		return "\u2066" + OS.get_keycode_string(keys[0].physical_keycode) + "\u2069"
-	return "کلید ورود"
+		return ltr(OS.get_keycode_string(keys[0].physical_keycode))
+	return tr("کلید ورود")
 
 func digits(n: int) -> String:
 	var text := str(n)
@@ -87,12 +146,13 @@ func _unhandled_key_input(event: InputEvent) -> void:
 		refresh(room, "")
 		get_viewport().set_input_as_handled()
 	elif event.is_action_pressed("restart") and room.defeated:
-		get_tree().change_scene_to_file("res://scenes/side/Court.tscn")
 		get_viewport().set_input_as_handled()
+		get_tree().change_scene_to_file("res://scenes/side/Court.tscn")
 	elif event is InputEventKey and event.pressed and not event.echo:
 		match event.physical_keycode:
 			KEY_F2:
-				room.view.toggle_weather()
+				room.toggle_rain()
+				refresh(room, "")
 			KEY_F3:
 				room.view.toggle_shadows()
 			KEY_F11:
