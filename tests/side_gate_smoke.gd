@@ -176,12 +176,16 @@ func run() -> void:
 	await ticks(10)
 	check(jump_count == 1 and not actor.is_on_floor() and actor.position.y < 360.0, "responsive jump and gravity")
 	var gun: SideWeapon = room.weapon
+	check(gun.firearm.definition == preload("res://assets/weapons/pistol.tres"), "active Court controller uses the approved pistol definition")
+	check((gun.muzzle_for(1) - actor.global_position).is_equal_approx(Vector2(42, -78))
+		and (gun.muzzle_for(-1) - actor.global_position).is_equal_approx(Vector2(-42, -78)),
+		"active pistol preserves approved muzzle offsets in both directions")
 	await click(Vector2(2, 2))
 	var projectile: SideProjectile
 	for child in room.world.get_children():
 		if child is SideProjectile:
 			projectile = child
-	check(projectile != null and fired_side == 1 and gun.magazine == 11,
+	check(projectile != null and fired_side == 1 and gun.firearm.magazine == 11,
 		"airborne LMB ignores opposite overhead cursor")
 	if projectile != null:
 		check(projectile.direction == 1 and is_equal_approx(projectile.global_position.y, fired.y)
@@ -204,21 +208,21 @@ func run() -> void:
 	await ticks(3)
 	gun.shoot()
 	await ticks(17)
-	check(room.walker.vitals.health == 65 and gun.magazine == 10 and last_material == &"metal" and absf(impact_point.x - 465.0) < 0.2, "metal cover stops projectile at actual contact")
+	check(room.walker.vitals.health == 65 and gun.firearm.magazine == 10 and last_material == &"metal" and absf(impact_point.x - 465.0) < 0.2, "metal cover stops projectile at actual contact")
 	check(not room.effects.flecks.any(func(f: SideEffects.Fleck) -> bool: return f.kind == &"blood"), "no blood on metal")
 	tall_cover.queue_free()
 	actor.position = Vector2(570, 425)
 	await ticks(3)
 	gun.shoot()
 	await ticks(3)
-	check(last_material == &"infected" and absf(impact_point.y - (425.0 + SideWeapon.SHOULDER_Y)) < 0.2, "infected contact at horizontal projectile height")
+	check(last_material == &"infected" and absf(impact_point.y - (425.0 - 78.0)) < 0.2, "infected contact at horizontal projectile height")
 	check(room.effects.flecks.any(func(f: SideEffects.Fleck) -> bool: return f.kind == &"blood" and f.p.distance_to(impact_point) < 8.0), "blood originates at the infected hit")
 	await ticks(14)
-	check(room.walker.vitals.health == 41 and gun.magazine == 9, "side-view projectile uses original damage")
+	check(room.walker.vitals.health == 41 and gun.firearm.magazine == 9, "side-view projectile uses original damage")
 	await pulse("reload")
 	check(gun.reload_left > 0.0, "original reload command")
 	await ticks(72)
-	check(gun.magazine == 12 and gun.reserve == 33, "reload consumes exactly three reserve rounds")
+	check(gun.firearm.magazine == 12 and room.player.reserve_for(&"ammo.9mm") == 33, "reload consumes exactly three reserve rounds")
 	check(reload_stages == [&"release", &"insert"], "tactical reload contact stages without unnecessary slide")
 	actor.position = Vector2(500, 370)
 	actor.velocity = Vector2.ZERO
@@ -229,9 +233,9 @@ func run() -> void:
 	actor.velocity = Vector2.ZERO
 	await pulse("move_left")
 	await ticks(2)
-	check(actor.facing == -1 and is_equal_approx(gun.muzzle_position().x, actor.global_position.x - SideWeapon.BARREL_X), "A flips and idle retains the mirrored pin")
+	check(actor.facing == -1 and is_equal_approx(gun.muzzle_position().x, actor.global_position.x - 42.0), "A flips and idle retains the mirrored pin")
 	await click(Vector2(950, 510))
-	check(fired_side == -1 and is_equal_approx(fired.y, actor.global_position.y + SideWeapon.SHOULDER_Y), "left LMB ignores cursor below/right")
+	check(fired_side == -1 and is_equal_approx(fired.y, actor.global_position.y - 78.0), "left LMB ignores cursor below/right")
 	await ticks(5)
 	check(room.walker.vitals.health == 17 and last_material == &"infected", "left projectile reaches an actual infected collider")
 	actor.position = Vector2(703, 425)
@@ -244,12 +248,16 @@ func run() -> void:
 	await ticks(4)
 	check(room.indoor and absf(room.player.position.x - 265.0) < 1.0, "interior loaded at linked marker")
 	check(not room.rain_enabled and room.audio.rain == null and room.audio.warehouse.playing, "interior uses its own ambience and remembers F2")
-	check(room.player.vitals.health == 85 and room.weapon.magazine == 11 and room.weapon.reserve == 33, "transition carries combat state")
+	check(room.player.vitals.health == 85 and room.weapon.firearm.magazine == 11 and room.player.reserve_for(&"ammo.9mm") == 33, "transition carries combat state")
+	check(room.hud.instrument.text == "تپانچه" and room.hud.mag_count.text == "خشاب ۱۱"
+		and room.hud.reserve_count.text == "ذخیره ۳۳", "Persian HUD reads the loaded definition and restored ammo")
 	await pulse("side_entrance")
 	await scene_changed
 	room = current_scene as SideRoom
 	await ticks(5)
 	check(not room.indoor and absf(room.player.position.x - 680.0) < 1.0, "return reaches the linked exterior marker")
+	check(room.weapon.firearm.magazine == 11 and room.player.reserve_for(&"ammo.9mm") == 33,
+		"return from Warehouse preserves magazine and player-owned stock")
 	check(is_instance_valid(room.walker) and room.walker.vitals.health == 17, "return cannot reset Walker damage")
 	if not is_instance_valid(room.walker):
 		restore_preferences()
@@ -287,7 +295,7 @@ func run() -> void:
 		hit_phase = gun.bat_phase
 		last_material = material)
 	var player_art := room.player.get_child(-1) as SideReviewArt
-	var mag_before: int = gun.magazine
+	var mag_before: int = gun.firearm.magazine
 	await pulse("bat")
 	check(gun.bat_phase == SideWeapon.BatPhase.READY and player_art.pose_index == SideReviewArt.Hero.BAT_READY, "F equips the ready drawing")
 	await wait_bat_phase(gun, SideWeapon.BatPhase.WINDUP)
@@ -297,7 +305,7 @@ func run() -> void:
 	check(gun.bat_phase == SideWeapon.BatPhase.SWING and player_art.pose_index == SideReviewArt.Hero.BAT_SWING, "bat displays pre-contact swing")
 	await wait_bat_phase(gun, SideWeapon.BatPhase.IMPACT)
 	check(gun.bat_phase == SideWeapon.BatPhase.IMPACT and player_art.pose_index == SideReviewArt.Hero.BAT_IMPACT, "impact drawing matches the physics contact window")
-	check(melee_hits == 1 and hit_phase == SideWeapon.BatPhase.IMPACT and gun.magazine == mag_before, "one melee contact on impact, no magazine change")
+	check(melee_hits == 1 and hit_phase == SideWeapon.BatPhase.IMPACT and gun.firearm.magazine == mag_before, "one melee contact on impact, no magazine change")
 	var voices: Array[AudioStreamPlayer2D] = room.audio.pools[&"Weapons"]
 	check(voices.any(func(voice: AudioStreamPlayer2D) -> bool:
 		return voice.playing and voice.stream == SideReviewAudio.CLIPS[&"melee"]), "same hit event starts licensed melee cue on Weapons")
@@ -338,14 +346,14 @@ func run() -> void:
 	check(room.player.vitals.health == 100 and not room.rain_enabled and not room.audio.rain.playing, "defeat restart resets combat but retains F2 off")
 	check(not room.defeated and room.world.process_mode != Node.PROCESS_MODE_DISABLED
 		and is_instance_valid(room.walker) and room.walker.vitals.health == 65
-		and room.weapon.magazine == 12 and room.weapon.reserve == 36,
+		and room.weapon.firearm.magazine == 12 and room.player.reserve_for(&"ammo.9mm") == 36,
 		"restart restores original encounter and ammunition")
-	room.weapon.magazine = 0
+	room.weapon.firearm.restore_magazine(0)
 	reload_stages.clear()
 	room.weapon.handling.connect(func(_at: Vector2, stage: StringName) -> void: reload_stages.append(stage))
 	await pulse("reload")
 	await ticks(72)
-	check(reload_stages == [&"release", &"insert", &"slide"] and room.weapon.reserve == 24, "empty reload includes the slide and fills only from reserve")
+	check(reload_stages == [&"release", &"insert", &"slide"] and room.player.reserve_for(&"ammo.9mm") == 24, "empty reload includes the slide and fills only from reserve")
 	var walker := room.walker
 	walker.active = false
 	room.player.position = Vector2(25, 425)

@@ -1,0 +1,16 @@
+[gd_resource type="Resource" script_class="WeaponDef" load_steps=2 format=3]
+
+[ext_resource type="Script" path="res://scripts/weapons/weapon_def.gd" id="1"]
+
+[resource]
+script = ExtResource("1")
+weapon_id = &"weapon.pistol.basic"
+display_name = "تپانچه"
+ammo_id = &"ammo.9mm"
+magazine_capacity = 12
+reload_duration = 1.15
+fire_cooldown = 0.23
+damage = 24
+projectile_speed = 1840.0
+projectile_range = 730.0
+muzzle_offset = Vector2(42, -78)

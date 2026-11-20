@@ -104,14 +104,16 @@ func refresh(room: Node, entry: String) -> void:
 	health_fill.size.x = health_track.size.x * clampf(float(hp) / player_vitals.max_health, 0.0, 1.0)
 	health_fill.color = Color("a0544e") if hp <= 30 else Color("87a291")
 	condition.text = tr("از پا افتاده" if room.defeated else ("آسیب‌دیده" if hp < player_vitals.max_health else "سالم"))
+	var firearm: WeaponInstance = room.weapon.firearm
+	var name_text := tr(firearm.definition.display_name)
 	if room.weapon.bat_phase != SideWeapon.BatPhase.NONE and not room.defeated:
 		instrument.text = tr("چوب‌دست  ·  ضربه")
 	elif room.weapon.reload_left > 0.0 and not room.defeated:
-		instrument.text = tr("تپانچه  ·  تعویض خشاب")
+		instrument.text = tr("%s  ·  تعویض خشاب") % name_text
 	else:
-		instrument.text = tr("تپانچه  ·  خشاب خالی" if room.weapon.magazine == 0 else "تپانچه")
-	mag_count.text = tr("خشاب %s") % digits(room.weapon.magazine)
-	reserve_count.text = tr("ذخیره %s") % digits(room.weapon.reserve)
+		instrument.text = tr("%s  ·  خشاب خالی") % name_text if firearm.magazine == 0 else name_text
+	mag_count.text = tr("خشاب %s") % digits(firearm.magazine)
+	reserve_count.text = tr("ذخیره %s") % digits(room.player.reserve_for(firearm.definition.ammo_id))
 	gear.text = tr("چوب‌دست  ·  ضربه %s") % ltr("F")
 	prompt.visible = (entry != "" or failure) and not room.defeated
 	prompt.text = tr("ورود در دسترس نیست") if failure else tr("%s — %s") % [entrance_key(), entry]

@@ -4,11 +4,9 @@ extends Node2D
 signal fired(at: Vector2, facing: int)
 signal handling(at: Vector2, stage: StringName)
 signal hit(at: Vector2, material: StringName)
-const CAPACITY := 12
-const RELOAD_TIME := 1.15
-const SHOULDER_Y := -78.0
-# Measured from the authored cel pin to the front edge of the horizontal pistol.
-const BARREL_X := 42.0
+# Fractions of time remaining; preserve pistol insert at 0.59 s and slide at 0.19 s.
+const INSERT_REMAINING := 59.0 / 115.0
+const SLIDE_REMAINING := 19.0 / 115.0
 const SHOT_FLASH_TIME := 0.047
 const SHOT_RECOIL_TIME := 0.15
 # Contact uses the matching wooden barrel in the BAT_IMPACT cel (pixel 135, 46).
@@ -16,8 +14,7 @@ const BAT_TIP := Vector2(67, -68)
 const BAT_START_CONTACT := 0.20
 const BAT_END := 0.52
 enum BatPhase { NONE, READY, WINDUP, SWING, IMPACT, FOLLOW, RECOVER }
-var magazine := CAPACITY
-var reserve := 36
+var firearm: WeaponInstance
 var cooldown := 0.0
 var reload_left := 0.0
 var recoil_left := 0.0
@@ -27,8 +24,9 @@ var bat_elapsed := 0.0
 var bat_phase := BatPhase.NONE
 var reload_stage := 0
 var started_empty := false
-@export var projectile_speed := 1840.0
-@export var projectile_range := 730.0
+
+func _init(config: WeaponDef) -> void:
+	firearm = WeaponInstance.new(config)
 
 func _physics_process(delta: float) -> void:
 	cooldown = maxf(0.0, cooldown - delta)
@@ -38,16 +36,18 @@ func _physics_process(delta: float) -> void:
 		return
 	if reload_left > 0.0:
 		reload_left = maxf(0.0, reload_left - delta)
-		if reload_stage == 0 and reload_left <= 0.59:
+		if reload_stage == 0 and reload_left <= firearm.definition.reload_duration * INSERT_REMAINING:
 			reload_stage = 1
 			handling.emit(shoulder(), &"insert")
-		if started_empty and reload_stage == 1 and reload_left <= 0.19:
+		if started_empty and reload_stage == 1 and reload_left <= firearm.definition.reload_duration * SLIDE_REMAINING:
 			reload_stage = 2
 			handling.emit(shoulder(), &"slide")
 		if reload_left == 0.0:
-			var n := mini(reserve, CAPACITY - magazine)
-			magazine += n
-			reserve -= n
+			var config := firearm.definition
+			var owner_player := get_parent() as SidePlayer
+			var needed := config.magazine_capacity - firearm.magazine
+			var taken := owner_player.take_reserve(config.ammo_id, needed)
+			firearm.load_rounds(config.ammo_id, taken)
 	elif cooldown == 0.0:
 		if Input.is_action_just_pressed("reload"):
 			begin_reload()
@@ -60,36 +60,39 @@ func facing() -> int:
 	return (get_parent() as SidePlayer).facing
 
 func shoulder() -> Vector2:
-	return to_global(Vector2(0.0, SHOULDER_Y))
+	return to_global(Vector2(0.0, firearm.definition.muzzle_offset.y))
 
 func muzzle_position() -> Vector2:
 	return muzzle_for(facing())
 
 func muzzle_for(side: int) -> Vector2:
-	return to_global(Vector2(side * BARREL_X, SHOULDER_Y))
+	var offset := firearm.definition.muzzle_offset
+	return to_global(Vector2(side * offset.x, offset.y))
 
 func showing_shot_flash() -> bool:
 	return recoil_left > SHOT_RECOIL_TIME - SHOT_FLASH_TIME
 
 func begin_reload() -> void:
-	if magazine < CAPACITY and reserve > 0 and cooldown == 0.0 and reload_left == 0.0:
-		reload_left = RELOAD_TIME
-		reload_stage = 0
-		started_empty = magazine == 0
-		handling.emit(shoulder(), &"release")
+	var config := firearm.definition
+	if config == null or firearm.magazine >= config.magazine_capacity or cooldown > 0.0 or reload_left > 0.0:
+		return
+	if (get_parent() as SidePlayer).reserve_for(config.ammo_id) == 0:
+		return
+	reload_left = config.reload_duration
+	reload_stage = 0
+	started_empty = firearm.magazine == 0
+	handling.emit(shoulder(), &"release")
 
 func shoot() -> void:
-	if magazine <= 0 or cooldown > 0.0 or reload_left > 0.0:
+	if cooldown > 0.0 or reload_left > 0.0 or not firearm.consume_round():
 		return
-	magazine -= 1
-	cooldown = 0.23
+	var config := firearm.definition
+	cooldown = config.fire_cooldown
 	recoil_left = SHOT_RECOIL_TIME
-	var projectile := SideProjectile.new()
+	var projectile := SideProjectile.new(config.projectile_speed, config.projectile_range, config.damage)
 	var side := facing()
 	shot_facing = side
 	projectile.direction = side
-	projectile.speed = projectile_speed
-	projectile.distance_left = projectile_range
 	projectile.shooter = (get_parent() as SidePlayer).get_rid()
 	projectile.contact.connect(hit.emit)
 	var world := get_parent().get_parent()

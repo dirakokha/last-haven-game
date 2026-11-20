@@ -1,6 +1,8 @@
 class_name SideRoom
 extends Node2D
 
+const PISTOL := preload("res://assets/weapons/pistol.tres")
+const STARTING_PISTOL_RESERVE := 36
 const COURT := "res://scenes/side/Court.tscn"
 const FLOOR := 425.0
 const TRANSFER := &"side_transfer"
@@ -8,7 +10,7 @@ const TRANSFER := &"side_transfer"
 @export var indoor := false
 var world := Node2D.new()
 var player: SidePlayer
-var weapon := SideWeapon.new()
+var weapon := SideWeapon.new(PISTOL)
 var camera := Camera2D.new()
 var walker: SideWalker
 var view := SideReviewView.new()
@@ -38,8 +40,8 @@ func _ready() -> void:
 		marker = $Start
 	player = SidePlayer.new(int(transfer.get("health", SidePlayer.MAX_HEALTH)))
 	player.vitals.depleted.connect(_on_player_depleted)
-	weapon.magazine = int(transfer.get("magazine", SideWeapon.CAPACITY))
-	weapon.reserve = int(transfer.get("reserve", 36))
+	weapon.firearm.restore_magazine(int(transfer.get("magazine", PISTOL.magazine_capacity)))
+	player.add_reserve(PISTOL.ammo_id, int(transfer.get("reserve", STARTING_PISTOL_RESERVE)))
 	var walker_spawn_hp := int(transfer.get("walker_hp", SideWalker.MAX_HEALTH))
 
 	add_child(world)
@@ -139,7 +141,7 @@ func travel(portal: SidePortal) -> void:
 	world.process_mode = Node.PROCESS_MODE_DISABLED
 	var walker_hp := walker.vitals.health if is_instance_valid(walker) else _absent_walker_hp
 	get_tree().set_meta(TRANSFER, {"arrival": portal.arrival, "health": player.vitals.health,
-		"magazine": weapon.magazine, "reserve": weapon.reserve, "walker_hp": walker_hp})
+		"magazine": weapon.firearm.magazine, "reserve": player.reserve_for(PISTOL.ammo_id), "walker_hp": walker_hp})
 	await hud.fade_to(1.0)
 	if get_tree().change_scene_to_file(portal.destination) != OK:
 		get_tree().remove_meta(TRANSFER)
