@@ -19,6 +19,8 @@ var veil: ColorRect
 var health_track: ColorRect
 var health_fill: ColorRect
 var failure := false
+var inventory_panel: SideInventoryPanel
+var _paused_before_inventory := false
 
 func _ready() -> void:
 	process_mode = Node.PROCESS_MODE_ALWAYS
@@ -47,6 +49,10 @@ func _ready() -> void:
 	result.add_theme_stylebox_override("normal", backing())
 	result.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
 	result.hide()
+	inventory_panel = SideInventoryPanel.new()
+	inventory_panel.add_theme_stylebox_override("panel", backing())
+	add_child(inventory_panel)
+	inventory_panel.bind(get_parent().player.inventory)
 	veil = ColorRect.new()
 	veil.color = Color("101822")
 	veil.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
@@ -124,7 +130,7 @@ func refresh(room: Node, entry: SideInteractable = null) -> void:
 	if prompt.text != message:
 		prompt.text = message
 	prompt.visible = not message.is_empty()
-	result.visible = room.defeated or get_tree().paused
+	result.visible = room.defeated or (get_tree().paused and not inventory_panel.visible)
 	if room.defeated:
 		result.text = tr("بازمانده از پا افتاد\nانتر: شروع دوباره")
 	elif get_tree().paused:
@@ -153,7 +159,18 @@ func fade_to(alpha: float) -> Signal:
 
 func _unhandled_key_input(event: InputEvent) -> void:
 	var room := get_parent()
-	if event.is_action_pressed("pause") and not room.transitioning and not room.defeated:
+	if inventory_panel.visible and (event.is_action_pressed("side_inventory") or event.is_action_pressed("pause")):
+		inventory_panel.hide()
+		get_tree().paused = _paused_before_inventory
+		refresh(room)
+		get_viewport().set_input_as_handled()
+	elif event.is_action_pressed("side_inventory") and not room.transitioning and not room.defeated:
+		_paused_before_inventory = get_tree().paused
+		get_tree().paused = true
+		inventory_panel.show()
+		refresh(room)
+		get_viewport().set_input_as_handled()
+	elif event.is_action_pressed("pause") and not room.transitioning and not room.defeated:
 		get_tree().paused = not get_tree().paused
 		refresh(room)
 		get_viewport().set_input_as_handled()

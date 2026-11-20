@@ -1,0 +1,10 @@
+[gd_resource type="Resource" script_class="ItemDef" load_steps=2 format=3]
+
+[ext_resource type="Script" path="res://scripts/inventory/item_def.gd" id="1"]
+
+[resource]
+script = ExtResource("1")
+item_id = &"test.ammo.alternate"
+display_name = "Alternate ammunition (fixture only)"
+max_stack = 10
+category = 1
