@@ -42,19 +42,27 @@ func stack_rows() -> Array[Dictionary]:
 	return rows
 
 func can_add(id: StringName, quantity: int) -> bool:
-	var definition := definition_for(id)
-	if definition == null or quantity <= 0 or quantity > MAX_QUANTITY - count(id):
-		return false
-	var remaining := quantity
+	return quantity > 0 and _accepted_quantity(definition_for(id), quantity) == quantity
+
+func _accepted_quantity(definition: ItemDef, requested: int) -> int:
+	if definition == null or requested <= 0:
+		return 0
+	var limit := mini(requested, MAX_QUANTITY - count(definition.item_id))
+	if limit <= 0:
+		return 0
+	var remaining := limit
 	for stack in _stacks:
-		if stack.definition.item_id == id:
+		if stack.definition.item_id == definition.item_id:
 			remaining -= mini(remaining, definition.max_stack - stack.quantity)
 			if remaining == 0:
-				return true
-	# Ceiling division without overflowing the requested quantity.
+				return limit
+	# Multiply only when free slots cannot hold the remainder, so it cannot overflow.
 	@warning_ignore("integer_division")
 	var required_slots := 1 + (remaining - 1) / definition.max_stack
-	return required_slots <= _capacity - occupied_slots()
+	var free_slots := _capacity - occupied_slots()
+	if free_slots >= required_slots:
+		return limit
+	return limit - remaining + free_slots * definition.max_stack
 
 func add(id: StringName, quantity: int) -> bool:
 	if _notifying or not can_add(id, quantity):
@@ -69,8 +77,43 @@ func can_remove(id: StringName, quantity: int) -> bool:
 func remove(id: StringName, quantity: int) -> bool:
 	if _notifying or not can_remove(id, quantity):
 		return false
+	_withdraw(id, quantity)
+	_notify()
+	return true
+
+## Moves as much as fits. If source_slot is supplied, only that stack is used.
+func transfer_to(destination: SideInventory, id: StringName, requested: int, source_slot: int = -1) -> int:
+	if destination == null or destination == self or requested <= 0 or _notifying or destination._notifying:
+		return 0
+	var source_def := definition_for(id)
+	var destination_def := destination.definition_for(id)
+	if source_def == null or not source_def.is_compatible_with(destination_def):
+		return 0
+	var available: int
+	if source_slot == -1:
+		available = count(id)
+	elif source_slot >= 0 and source_slot < _stacks.size() and _stacks[source_slot].definition.item_id == id:
+		available = _stacks[source_slot].quantity
+	else:
+		return 0
+	var moved := destination._accepted_quantity(destination_def, mini(requested, available))
+	if moved == 0:
+		return 0
+	# Commit both sides before notifying either. Keep both locked until all callbacks finish.
+	_notifying = true
+	destination._notifying = true
+	_withdraw(id, moved, source_slot)
+	destination._insert(destination_def, moved)
+	changed.emit()
+	destination.changed.emit()
+	destination._notifying = false
+	_notifying = false
+	return moved
+
+func _withdraw(id: StringName, quantity: int, source_slot: int = -1) -> void:
 	var remaining := quantity
-	for i in range(_stacks.size() - 1, -1, -1):
+	var first := _stacks.size() - 1 if source_slot == -1 else source_slot
+	for i in range(first, -1, -1):
 		var stack := _stacks[i]
 		if stack.definition.item_id != id:
 			continue
@@ -81,8 +124,6 @@ func remove(id: StringName, quantity: int) -> bool:
 			_stacks.remove_at(i)
 		if remaining == 0:
 			break
-	_notify()
-	return true
 
 func clear() -> void:
 	if not _notifying and not _stacks.is_empty():

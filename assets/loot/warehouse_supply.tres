@@ -1,0 +1,21 @@
+[gd_resource type="Resource" script_class="LootContainerDef" load_steps=7 format=3]
+
+[ext_resource type="Script" path="res://scripts/inventory/loot_container_def.gd" id="1_def"]
+[ext_resource type="Script" path="res://scripts/inventory/loot_entry_def.gd" id="2_entry"]
+[ext_resource type="Resource" path="res://assets/items/ammo_9mm.tres" id="3_ammo"]
+[ext_resource type="Resource" path="res://assets/items/scrap_metal.tres" id="4_scrap"]
+
+[sub_resource type="Resource" id="LootEntry_ammo"]
+script = ExtResource("2_entry")
+item = ExtResource("3_ammo")
+quantity = 24
+
+[sub_resource type="Resource" id="LootEntry_scrap"]
+script = ExtResource("2_entry")
+item = ExtResource("4_scrap")
+quantity = 5
+
+[resource]
+script = ExtResource("1_def")
+capacity = 4
+entries = Array[ExtResource("2_entry")]([SubResource("LootEntry_ammo"), SubResource("LootEntry_scrap")])

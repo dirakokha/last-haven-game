@@ -20,7 +20,8 @@ var health_track: ColorRect
 var health_fill: ColorRect
 var failure := false
 var inventory_panel: SideInventoryPanel
-var _paused_before_inventory := false
+var loot_panel: SideLootPanel
+var _paused_before_modal := false
 
 func _ready() -> void:
 	process_mode = Node.PROCESS_MODE_ALWAYS
@@ -44,6 +45,7 @@ func _ready() -> void:
 	prompt = label(Rect2(312, 366, 336, 38), "", 18)
 	prompt.add_theme_stylebox_override("normal", backing())
 	prompt.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+	prompt.text_direction = Control.TEXT_DIRECTION_AUTO
 	prompt.hide()
 	result = label(Rect2(304, 202, 352, 112), "", 23)
 	result.add_theme_stylebox_override("normal", backing())
@@ -53,6 +55,9 @@ func _ready() -> void:
 	inventory_panel.add_theme_stylebox_override("panel", backing())
 	add_child(inventory_panel)
 	inventory_panel.bind(get_parent().player.inventory)
+	loot_panel = SideLootPanel.new()
+	loot_panel.add_theme_stylebox_override("panel", backing())
+	add_child(loot_panel)
 	veil = ColorRect.new()
 	veil.color = Color("101822")
 	veil.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
@@ -130,11 +135,11 @@ func refresh(room: Node, entry: SideInteractable = null) -> void:
 	if prompt.text != message:
 		prompt.text = message
 	prompt.visible = not message.is_empty()
-	result.visible = room.defeated or (get_tree().paused and not inventory_panel.visible)
+	result.visible = room.defeated or (get_tree().paused and not inventory_panel.visible and not loot_panel.visible)
 	if room.defeated:
-		result.text = tr("بازمانده از پا افتاد\nانتر: شروع دوباره")
+		result.text = tr("بازمانده از پا افتاد\n%s: شروع دوباره") % ltr("Enter")
 	elif get_tree().paused:
-		result.text = tr("توقف\nگریز: ادامهٔ بازی")
+		result.text = tr("توقف\n%s: ادامهٔ بازی") % ltr("Esc")
 
 func ltr(text: String) -> String:
 	return "\u2066" + text + "\u2069"
@@ -157,15 +162,34 @@ func fade_to(alpha: float) -> Signal:
 	tween.tween_property(veil, "color:a", alpha, 0.25)
 	return tween.finished
 
+func open_loot(contents: SideInventory, player_inventory: SideInventory) -> bool:
+	if inventory_panel.visible or not loot_panel.open(contents, player_inventory):
+		return false
+	_paused_before_modal = get_tree().paused
+	get_tree().paused = true
+	return true
+
 func _unhandled_key_input(event: InputEvent) -> void:
 	var room := get_parent()
-	if inventory_panel.visible and (event.is_action_pressed("side_inventory") or event.is_action_pressed("pause")):
+	if loot_panel.visible:
+		if event.is_action_pressed("pause"):
+			loot_panel.close()
+			get_tree().paused = _paused_before_modal
+		elif event.is_action_pressed("ui_up"):
+			loot_panel.move_selection(-1)
+		elif event.is_action_pressed("ui_down"):
+			loot_panel.move_selection(1)
+		elif event.is_action_pressed("side_loot_take"):
+			loot_panel.take_selected()
+		refresh(room)
+		get_viewport().set_input_as_handled()
+	elif inventory_panel.visible and (event.is_action_pressed("side_inventory") or event.is_action_pressed("pause")):
 		inventory_panel.hide()
-		get_tree().paused = _paused_before_inventory
+		get_tree().paused = _paused_before_modal
 		refresh(room)
 		get_viewport().set_input_as_handled()
 	elif event.is_action_pressed("side_inventory") and not room.transitioning and not room.defeated:
-		_paused_before_inventory = get_tree().paused
+		_paused_before_modal = get_tree().paused
 		get_tree().paused = true
 		inventory_panel.show()
 		refresh(room)

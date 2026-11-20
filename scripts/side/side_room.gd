@@ -146,6 +146,9 @@ func _precedes(candidate: SideInteractable, selected: SideInteractable) -> bool:
 		return String(candidate.placement_id) < String(selected.placement_id)
 	return String(candidate.get_path()) < String(selected.get_path())
 
+func open_loot(actor: SidePlayer, contents: SideInventory) -> bool:
+	return actor == player and _interaction_allowed() and hud.open_loot(contents, player.inventory)
+
 func start_travel(destination: String, arrival: StringName) -> bool:
 	if not _interaction_allowed() or not ResourceLoader.exists(destination, "PackedScene"):
 		return false
