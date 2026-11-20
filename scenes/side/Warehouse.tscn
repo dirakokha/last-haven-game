@@ -1,0 +1,22 @@
+[gd_scene load_steps=3 format=3]
+
+[ext_resource type="Script" path="res://scripts/side/side_room.gd" id="Room"]
+[ext_resource type="Script" path="res://scripts/side/side_portal.gd" id="Portal"]
+
+[node name="Warehouse" type="Node2D"]
+script = ExtResource("Room")
+room_width = 1100
+indoor = true
+
+[node name="Start" type="Marker2D" parent="."]
+position = Vector2(255, 425)
+
+[node name="FromCourt" type="Marker2D" parent="."]
+position = Vector2(265, 425)
+
+[node name="CourtEntrance" type="Marker2D" parent="."]
+position = Vector2(238, 425)
+script = ExtResource("Portal")
+destination = "res://scenes/side/Court.tscn"
+arrival = &"FromWarehouse"
+entrance_text = "خروج به محوطه"

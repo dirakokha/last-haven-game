@@ -1,5 +1,17 @@
 # Asset source and license register
 
+## Side-view Gate 2 samples
+
+| Files | Provenance and status |
+| --- | --- |
+| `assets/side_review/review_survivor.png`, `review_walker.png` | AI-assisted concept keys generated in Arena for this project, with no third-party reference packs. Inputs are retained under `tools/side_review/source/`; [`pack_art.py`](../tools/side_review/pack_art.py) masks, limits colors, crops and places cels on the gameplay pin. The Walker contact sheet output is an unrequested source variant; only the far-right figure was extracted for the neutral cel. Not hand-drawn finished animation. |
+| `assets/side_review/court.png` | AI-assisted exterior art-direction plate, authored for this project and fitted to the true side-on floor by `pack_art.py`. Source `tools/side_review/source/court_plate.png`. |
+| `assets/side_review/lamp.png`, `review_case.png` | Original local mask/diagnostic prop drawn by `pack_art.py`; not third-party assets or character art. |
+| `assets/side_review/gate_{pistol,step,walker,impact}_*.wav` plus the audition in `docs/review/` | Original synthetic direction cues/mix by [`pack_audio.py`](../tools/side_review/pack_audio.py); no samples or recordings. Rain and reload reuse the earlier proof files noted below. |
+| Native-size review PNG and pose GIF | Offline compositions of the above with bundled Vazirmatn, by [`make_review.py`](../tools/side_review/make_review.py); not runtime captures. |
+
+No paid art or audio service, external stock pack, or new third-party runtime asset was added for this review. These samples are pending owner acceptance and are not offered under a public license. Retain the Vazirmatn notice with distributions. Before using assisted references as final production art, review the provenance and replace or manually redraw any asset whose consistency or rights suitability do not meet the project's needs.
+
 ## Art & audio proof 01
 
 The proof art and sound below were made for **Last Haven**. They contain no third-party textures, samples, recordings, or paid services. There are no per-copy fees or third-party asset licenses to clear for the owner’s project distribution. **This register does not grant a public license** for project-original files; any standalone reuse or public licensing is the owner's decision. No CC license was applied.
