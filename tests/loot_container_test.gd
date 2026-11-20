@@ -4,6 +4,7 @@ const COURT := "res://scenes/side/Court.tscn"
 const WAREHOUSE := "res://scenes/side/Warehouse.tscn"
 const SUPPLY := preload("res://assets/loot/warehouse_supply.tres")
 const AMMO := &"ammo.9mm"
+const HEAVY_AMMO := &"ammo.45acp"
 const SCRAP := &"resource.scrap_metal"
 const PICKUP := &"warehouse.pickup.9mm.01"
 var failures := 0
@@ -36,7 +37,7 @@ func definitions_and_transfers() -> void:
 	check(bad.create_inventory(catalog) == null, "all authored quantities must fit")
 	var conflicting := ItemCatalog.AMMO_9MM.duplicate() as ItemDef
 	conflicting.max_stack = 40
-	var incompatible := ItemCatalog.new([conflicting, ItemCatalog.SCRAP_METAL])
+	var incompatible := ItemCatalog.new([conflicting, ItemCatalog.SCRAP_METAL, ItemCatalog.AMMO_45ACP])
 	check(SUPPLY.create_inventory(incompatible) == null, "a recipe cannot override catalog stack rules")
 	var state := SideRunState.new()
 	var source := state.container_inventory(&"test.a", SUPPLY)
@@ -68,7 +69,7 @@ func definitions_and_transfers() -> void:
 	check(source.transfer_to(bags, SCRAP, 5, 1) == 5 and bags.count(SCRAP) == 5 and source.count(SCRAP) == 0,
 		"a whole selected resource stack transfers unchanged")
 	check(source.add(AMMO, 37) and source.transfer_to(bags, AMMO, 12, 0) == 12
-		and source.stack_rows()[0].quantity == 38 and source.stack_rows()[1].quantity == 10,
+		and source.stack_rows()[0].quantity == 38 and source.stack_rows()[2].quantity == 10,
 		"slot-specific transfers deplete the selected stack first")
 	check(state.container_inventory(&"test.a", SUPPLY) == source and state.reset()
 		and source.count(AMMO) == 24 and source.count(SCRAP) == 5,
@@ -90,7 +91,7 @@ func placement_identity() -> void:
 	var entry := LootEntryDef.new()
 	entry.item = ItemCatalog.AMMO_9MM
 	entry.quantity = 23
-	copy.entries = [entry, SUPPLY.entries[1]]
+	copy.entries = [entry, SUPPLY.entries[1], SUPPLY.entries[2]]
 	check(state.container_inventory(&"test.identity", copy) == null, "same placement and definition ID reject different quantities")
 	var different_rules := ItemCatalog.AMMO_9MM.duplicate() as ItemDef
 	different_rules.max_stack -= 1
@@ -219,8 +220,14 @@ func run() -> void:
 	await press(KEY_E)
 	await press(KEY_ENTER)
 	await press(KEY_ENTER)
-	check(stock.occupied_slots() == 0 and bag.count(AMMO) == 50 and bag.count(SCRAP) == 85
-		and panel.status.text == "EMPTY", "repeat takes both remaining stacks and displays EMPTY")
+	check(stock.count(AMMO) == 0 and stock.count(SCRAP) == 0 and bag.count(AMMO) == 50 and bag.count(SCRAP) == 85,
+		"repeat transfers the remaining 9mm and scrap without altering their quantities")
+	await press(KEY_ENTER)
+	check(stock.count(HEAVY_AMMO) == 12 and panel.status.text == "INVENTORY FULL", "new ammo waits in the crate until space is available")
+	check(bag.remove(SCRAP, 20), "fixture frees another slot")
+	await press(KEY_ENTER)
+	check(stock.occupied_slots() == 0 and bag.count(HEAVY_AMMO) == 12 and panel.status.text == "EMPTY",
+		"taking the final stack empties the reconstructed crate")
 	await press(KEY_ESCAPE)
 	room.weapon.firearm.restore_magazine(10)
 	await press(KEY_R)

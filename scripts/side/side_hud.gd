@@ -120,12 +120,14 @@ func refresh(room: Node, entry: SideInteractable = null) -> void:
 	if room.weapon.bat_phase != SideWeapon.BatPhase.NONE and not room.defeated:
 		instrument.text = tr("چوب‌دست  ·  ضربه")
 	elif room.weapon.reload_left > 0.0 and not room.defeated:
-		instrument.text = tr("%s  ·  تعویض خشاب") % name_text
+		instrument.text = tr("%s  ·  %s") % [name_text, ltr("RELOAD")]
 	else:
 		instrument.text = tr("%s  ·  خشاب خالی") % name_text if firearm.magazine == 0 else name_text
 	mag_count.text = tr("خشاب %s") % digits(firearm.magazine)
 	reserve_count.text = tr("ذخیره %s") % digits(room.player.reserve_for(firearm.definition.ammo_id))
-	gear.text = tr("چوب‌دست  ·  ضربه %s") % ltr("F")
+	var loadout: WeaponLoadout = room.weapon.loadout
+	var keys := "1 / 2" if loadout.weapon_at(WeaponLoadout.SLOT_2) != null else "1"
+	gear.text = ltr("SLOT %d  ·  SWITCH %s" % [loadout.active_slot, keys])
 	var message := ""
 	if not room.defeated and not room.transitioning and not get_tree().paused:
 		if entry != null:
