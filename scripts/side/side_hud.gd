@@ -96,12 +96,14 @@ func label(bounds: Rect2, text: String, size: int, tint: Color = INK, align: Hor
 	return item
 
 func refresh(room: Node, entry: String) -> void:
+	var player_vitals: CharacterVitals = room.player.vitals
+	var hp := player_vitals.health
 	location.text = tr("انبار" if room.indoor else "محوطهٔ بارگیری")
 	weather.text = tr("باران روشن %s" if room.rain_enabled else "باران خاموش %s") % ltr("F2")
-	vitals.text = tr("سلامت  %s") % digits(room.health)
-	health_fill.size.x = health_track.size.x * clampf(room.health / 100.0, 0.0, 1.0)
-	health_fill.color = Color("a0544e") if room.health <= 30 else Color("87a291")
-	condition.text = tr("از پا افتاده" if room.defeated else ("آسیب‌دیده" if room.health < 100 else "سالم"))
+	vitals.text = tr("سلامت  %s") % digits(hp)
+	health_fill.size.x = health_track.size.x * clampf(float(hp) / player_vitals.max_health, 0.0, 1.0)
+	health_fill.color = Color("a0544e") if hp <= 30 else Color("87a291")
+	condition.text = tr("از پا افتاده" if room.defeated else ("آسیب‌دیده" if hp < player_vitals.max_health else "سالم"))
 	if room.weapon.bat_phase != SideWeapon.BatPhase.NONE and not room.defeated:
 		instrument.text = tr("چوب‌دست  ·  ضربه")
 	elif room.weapon.reload_left > 0.0 and not room.defeated:

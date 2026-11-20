@@ -2,13 +2,13 @@ class_name SideWalker
 extends CharacterBody2D
 
 signal strikes(amount: int)
-signal fell
 signal warned(at: Vector2, is_runner: bool)
 signal vocal(at: Vector2, is_runner: bool, event: StringName)
 
 enum Motion { WAIT, FOLLOW, WARN, LUNGE, RECOVER }
+const MAX_HEALTH := 65
 var target: SidePlayer
-var hp := 65
+var vitals: CharacterVitals
 var runner := false
 var active := true
 var mode := Motion.WAIT
@@ -21,24 +21,30 @@ var hit_left := 0.0
 var death_left := 0.0
 var gait := 0.0
 
-func hurt(amount: int, push: float) -> void:
-	if hp <= 0:
-		return
-	hp = maxi(0, hp - amount)
+func _init(spawn_health: int = MAX_HEALTH) -> void:
+	vitals = CharacterVitals.new(MAX_HEALTH, spawn_health)
+	vitals.depleted.connect(_on_depleted)
+
+## Returns HP lost so combat only publishes infected impacts for effective hits.
+func hurt(amount: int, push: float) -> int:
+	var applied := vitals.apply_damage(amount)
+	if applied == 0:
+		return 0
 	knocked = push
 	hit_left = 0.19
-	if hp == 0:
-		death_left = 0.21
-		velocity = Vector2.ZERO
-		set_deferred("collision_layer", 0)
-		set_deferred("collision_mask", 0)
-		vocal.emit(global_position, runner, &"death")
-		fell.emit()
-	else:
+	if not vitals.is_depleted():
 		vocal.emit(global_position, runner, &"damage")
+	return applied
+
+func _on_depleted() -> void:
+	death_left = 0.21
+	velocity = Vector2.ZERO
+	set_deferred("collision_layer", 0)
+	set_deferred("collision_mask", 0)
+	vocal.emit(global_position, runner, &"death")
 
 func _physics_process(delta: float) -> void:
-	if hp <= 0:
+	if vitals.is_depleted():
 		death_left = maxf(0.0, death_left - delta)
 		return
 	if target == null:

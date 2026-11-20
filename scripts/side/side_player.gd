@@ -5,7 +5,12 @@ signal launched
 signal landed
 signal footfall(running: bool, surface: StringName)
 signal exerted
+signal damaged(amount: int)
 
+const MAX_HEALTH := 100
+const DAMAGE_IMMUNITY := 0.7
+var vitals: CharacterVitals
+var _immune_left := 0.0
 
 @export var walk_speed := 178.0
 @export var run_speed := 285.0
@@ -23,10 +28,26 @@ var ground_surface := &"concrete"
 var jump_pose_left := 0.0
 var land_pose_left := 0.0
 var injury_left := 0.0
-var down := false
 var effort_left := 0.0
 var has_physics_sample := false
 var landing_step := false
+
+func _init(spawn_health: int = MAX_HEALTH) -> void:
+	vitals = CharacterVitals.new(MAX_HEALTH, spawn_health)
+
+func _process(delta: float) -> void:
+	_immune_left = maxf(0.0, _immune_left - delta)
+
+## Target policy: callers validate contact; this actor gates repeated damage.
+func take_damage(amount: int) -> int:
+	if _immune_left > 0.0:
+		return 0
+	var applied := vitals.apply_damage(amount)
+	if applied > 0:
+		_immune_left = DAMAGE_IMMUNITY
+		injury_left = 0.24
+		damaged.emit(applied)
+	return applied
 
 func _physics_process(delta: float) -> void:
 	var grounded := is_on_floor()
