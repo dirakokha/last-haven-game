@@ -41,6 +41,8 @@ func run() -> void:
 		push_error("Side interaction test timed out")
 		quit(1))
 	root.size = Vector2i(960, 540)
+	var unrelated := preload("res://tests/fixtures/unrelated_ammo.tres")
+	set_meta(SideRunState.KEY, SideRunState.new(ItemCatalog.new([ItemCatalog.AMMO_9MM, unrelated])))
 	if change_scene_to_file(COURT) != OK:
 		quit(1)
 		return

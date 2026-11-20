@@ -72,7 +72,9 @@ func run() -> void:
 	check_magazines()
 	var world := Node2D.new()
 	root.add_child(world)
-	var player := SidePlayer.new()
+	var ammo_fixture := preload("res://tests/fixtures/alternate_ammo.tres")
+	var inventory := SideInventory.new(2, ItemCatalog.new([ItemCatalog.AMMO_9MM, ammo_fixture]))
+	var player := SidePlayer.new(SidePlayer.MAX_HEALTH, inventory)
 	player.position = Vector2(200, 200)
 	player.collision_layer = 2
 	world.add_child(player)

@@ -11,7 +11,9 @@ const MAX_HEALTH := 100
 const DAMAGE_IMMUNITY := 0.7
 var vitals: CharacterVitals
 var _immune_left := 0.0
-var _reserve: Dictionary[StringName, int] = {}
+var _inventory: SideInventory
+var inventory: SideInventory:
+	get: return _inventory
 
 @export var walk_speed := 178.0
 @export var run_speed := 285.0
@@ -33,25 +35,24 @@ var effort_left := 0.0
 var has_physics_sample := false
 var landing_step := false
 
-func _init(spawn_health: int = MAX_HEALTH) -> void:
+func _init(spawn_health: int = MAX_HEALTH, current_inventory: SideInventory = null) -> void:
 	vitals = CharacterVitals.new(MAX_HEALTH, spawn_health)
+	_inventory = current_inventory if current_inventory != null else SideInventory.new()
 
-## Reserve stock keyed by ammo type; the firearm controller needs count and take only.
+## The firearm controller only needs count and take, regardless of slot layout.
 func reserve_for(ammo_id: StringName) -> int:
-	return _reserve.get(ammo_id, 0)
+	return inventory.count(ammo_id) if _is_ammo(ammo_id) else 0
 
-func add_reserve(ammo_id: StringName, rounds: int) -> void:
-	if ammo_id != &"" and rounds > 0:
-		# Saturate rather than overflow if fed a very large count.
-		var current := reserve_for(ammo_id)
-		_reserve[ammo_id] = current + mini(rounds, 9223372036854775807 - current)
+func add_reserve(ammo_id: StringName, rounds: int) -> bool:
+	return _is_ammo(ammo_id) and inventory.add(ammo_id, rounds)
 
 func take_reserve(ammo_id: StringName, rounds: int) -> int:
-	var current := reserve_for(ammo_id)
-	var taken := clampi(rounds, 0, current)
-	if taken > 0:
-		_reserve[ammo_id] = current - taken
-	return taken
+	var available := mini(rounds, reserve_for(ammo_id))
+	return available if available > 0 and inventory.remove(ammo_id, available) else 0
+
+func _is_ammo(id: StringName) -> bool:
+	var definition := inventory.definition_for(id)
+	return definition != null and definition.category == ItemDef.Category.AMMUNITION
 
 func _process(delta: float) -> void:
 	_immune_left = maxf(0.0, _immune_left - delta)

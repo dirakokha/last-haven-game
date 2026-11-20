@@ -2,7 +2,6 @@ class_name SideRoom
 extends Node2D
 
 const PISTOL := preload("res://assets/weapons/pistol.tres")
-const STARTING_PISTOL_RESERVE := 36
 const COURT := "res://scenes/side/Court.tscn"
 const FLOOR := 425.0
 const TRANSFER := &"side_transfer"
@@ -34,10 +33,10 @@ func _ready() -> void:
 	var marker := get_node_or_null(NodePath(String(transfer.get("arrival", &"Start")))) as Marker2D
 	if marker == null:
 		marker = $Start
-	player = SidePlayer.new(int(transfer.get("health", SidePlayer.MAX_HEALTH)))
+	var run_inventory := SideRunState.for_tree(get_tree()).inventory
+	player = SidePlayer.new(int(transfer.get("health", SidePlayer.MAX_HEALTH)), run_inventory)
 	player.vitals.depleted.connect(_on_player_depleted)
 	weapon.firearm.restore_magazine(int(transfer.get("magazine", PISTOL.magazine_capacity)))
-	player.add_reserve(PISTOL.ammo_id, int(transfer.get("reserve", STARTING_PISTOL_RESERVE)))
 	var walker_spawn_hp := int(transfer.get("walker_hp", SideWalker.MAX_HEALTH))
 
 	add_child(world)
@@ -154,7 +153,7 @@ func start_travel(destination: String, arrival: StringName) -> bool:
 	world.process_mode = Node.PROCESS_MODE_DISABLED
 	var walker_hp := walker.vitals.health if is_instance_valid(walker) else _absent_walker_hp
 	get_tree().set_meta(TRANSFER, {"arrival": arrival, "health": player.vitals.health,
-		"magazine": weapon.firearm.magazine, "reserve": player.reserve_for(PISTOL.ammo_id), "walker_hp": walker_hp})
+		"magazine": weapon.firearm.magazine, "walker_hp": walker_hp})
 	_finish_travel(destination)
 	return true
 
@@ -170,8 +169,8 @@ func _finish_travel(destination: String) -> void:
 func restart_after_defeat() -> void:
 	if not defeated or transitioning:
 		return
-	SideRunState.for_tree(get_tree()).reset()
-	get_tree().change_scene_to_file(COURT)
+	if SideRunState.for_tree(get_tree()).reset():
+		get_tree().change_scene_to_file(COURT)
 
 func take_damage(amount: int) -> void:
 	if not transitioning:
