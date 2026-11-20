@@ -95,7 +95,7 @@ func label(bounds: Rect2, text: String, size: int, tint: Color = INK, align: Hor
 	add_child(item)
 	return item
 
-func refresh(room: Node, entry: String) -> void:
+func refresh(room: Node, entry: SideInteractable = null) -> void:
 	var player_vitals: CharacterVitals = room.player.vitals
 	var hp := player_vitals.health
 	location.text = tr("انبار" if room.indoor else "محوطهٔ بارگیری")
@@ -115,8 +115,15 @@ func refresh(room: Node, entry: String) -> void:
 	mag_count.text = tr("خشاب %s") % digits(firearm.magazine)
 	reserve_count.text = tr("ذخیره %s") % digits(room.player.reserve_for(firearm.definition.ammo_id))
 	gear.text = tr("چوب‌دست  ·  ضربه %s") % ltr("F")
-	prompt.visible = (entry != "" or failure) and not room.defeated
-	prompt.text = tr("ورود در دسترس نیست") if failure else tr("%s — %s") % [entrance_key(), entry]
+	var message := ""
+	if not room.defeated and not room.transitioning and not get_tree().paused:
+		if entry != null:
+			message = tr("%s — %s") % [action_key(entry.input_action), entry.interaction_prompt()]
+		elif failure:
+			message = tr("ورود در دسترس نیست")
+	if prompt.text != message:
+		prompt.text = message
+	prompt.visible = not message.is_empty()
 	result.visible = room.defeated or get_tree().paused
 	if room.defeated:
 		result.text = tr("بازمانده از پا افتاد\nانتر: شروع دوباره")
@@ -126,11 +133,12 @@ func refresh(room: Node, entry: String) -> void:
 func ltr(text: String) -> String:
 	return "\u2066" + text + "\u2069"
 
-func entrance_key() -> String:
-	var keys := InputMap.action_get_events("side_entrance")
-	if not keys.is_empty() and keys[0] is InputEventKey:
-		return ltr(OS.get_keycode_string(keys[0].physical_keycode))
-	return tr("کلید ورود")
+func action_key(action: StringName) -> String:
+	for binding in InputMap.action_get_events(action):
+		if binding is InputEventKey:
+			var code: Key = binding.physical_keycode if binding.physical_keycode != 0 else binding.keycode
+			return ltr(OS.get_keycode_string(code))
+	return tr("کلید تعامل")
 
 func digits(n: int) -> String:
 	var text := str(n)
@@ -147,16 +155,16 @@ func _unhandled_key_input(event: InputEvent) -> void:
 	var room := get_parent()
 	if event.is_action_pressed("pause") and not room.transitioning and not room.defeated:
 		get_tree().paused = not get_tree().paused
-		refresh(room, "")
+		refresh(room)
 		get_viewport().set_input_as_handled()
 	elif event.is_action_pressed("restart") and room.defeated:
 		get_viewport().set_input_as_handled()
-		get_tree().change_scene_to_file("res://scenes/side/Court.tscn")
+		room.restart_after_defeat()
 	elif event is InputEventKey and event.pressed and not event.echo:
 		match event.physical_keycode:
 			KEY_F2:
 				room.toggle_rain()
-				refresh(room, "")
+				refresh(room)
 			KEY_F3:
 				room.view.toggle_shadows()
 			KEY_F11:

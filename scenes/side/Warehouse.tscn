@@ -1,7 +1,9 @@
-[gd_scene load_steps=3 format=3]
+[gd_scene load_steps=4 format=3]
 
 [ext_resource type="Script" path="res://scripts/side/side_room.gd" id="Room"]
 [ext_resource type="Script" path="res://scripts/side/side_portal.gd" id="Portal"]
+
+[ext_resource type="Script" path="res://scripts/side/side_ammo_pickup.gd" id="AmmoPickup"]
 
 [node name="Warehouse" type="Node2D"]
 script = ExtResource("Room")
@@ -19,4 +21,26 @@ position = Vector2(238, 425)
 script = ExtResource("Portal")
 destination = "res://scenes/side/Court.tscn"
 arrival = &"FromWarehouse"
+placement_id = &"warehouse.door.court"
 entrance_text = "خروج به محوطه"
+
+[node name="AmmoPickup" type="Marker2D" parent="."]
+position = Vector2(410, 425)
+z_index = 1
+script = ExtResource("AmmoPickup")
+rounds = 12
+placement_id = &"warehouse.pickup.9mm.01"
+prompt_text = "برداشتن فشنگ ۹ میلی‌متری"
+reach = 56.0
+
+[node name="Box" type="Polygon2D" parent="AmmoPickup"]
+color = Color(0.47, 0.43, 0.31, 1)
+polygon = PackedVector2Array(-10, -9, 10, -9, 10, -1, -10, -1)
+
+[node name="Lid" type="Polygon2D" parent="AmmoPickup"]
+color = Color(0.71, 0.63, 0.42, 1)
+polygon = PackedVector2Array(-10, -9, -6, -12, 9, -12, 10, -9)
+
+[node name="Label" type="Polygon2D" parent="AmmoPickup"]
+color = Color(0.81, 0.73, 0.54, 1)
+polygon = PackedVector2Array(-4, -7, 4, -7, 4, -4, -4, -4)

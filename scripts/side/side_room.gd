@@ -18,7 +18,6 @@ var audio := SideReviewAudio.new()
 var hud := SideHUD.new()
 var effects := SideEffects.new()
 var rain_enabled := true
-var portals: Array[SidePortal] = []
 # This snapshot is only needed in a room with no live Walker instance.
 var _absent_walker_hp := 0
 var transitioning := false
@@ -28,9 +27,6 @@ var defeated: bool:
 
 func _ready() -> void:
 	Input.set_default_cursor_shape(Input.CURSOR_ARROW)
-	for node in get_children():
-		if node is SidePortal:
-			portals.append(node)
 	rain_enabled = SideWeatherPreferences.read()
 	var transfer := get_tree().get_meta(TRANSFER, {}) as Dictionary
 	if get_tree().has_meta(TRANSFER):
@@ -121,34 +117,61 @@ func add_solid(rect: Rect2, material: StringName) -> StaticBody2D:
 func _process(delta: float) -> void:
 	var target := clampf(player.position.x + 70.0 * player.facing, 480.0, room_width - 480.0)
 	camera.position.x = lerpf(camera.position.x, target, 1.0 - exp(-delta * 9.0))
-	var prompt := ""
-	if not transitioning and not defeated:
-		for portal in portals:
-			if portal.in_reach(player):
-				prompt = portal.entrance_text
-				if Input.is_action_just_pressed("side_entrance"):
-					travel(portal)
-				break
-	hud.refresh(self, prompt)
+	var selected := select_interactable()
+	if selected != null and Input.is_action_just_pressed(selected.input_action) and selected.activate(player):
+		selected = select_interactable()
+	hud.refresh(self, selected)
 
-func travel(portal: SidePortal) -> void:
-	if transitioning or defeated or not portal.in_reach(player):
-		return
-	if not ResourceLoader.exists(portal.destination, "PackedScene"):
-		hud.failure = true
-		return
+func _interaction_allowed() -> bool:
+	return is_instance_valid(player) and not transitioning and not defeated and not get_tree().paused
+
+func select_interactable() -> SideInteractable:
+	if not _interaction_allowed():
+		return null
+	var selected: SideInteractable
+	var nearest := INF
+	for node in get_tree().get_nodes_in_group(SideInteractable.GROUP):
+		var candidate := node as SideInteractable
+		if candidate == null or not is_ancestor_of(candidate) or not candidate.can_activate(player):
+			continue
+		var distance := candidate.horizontal_distance(player)
+		if selected == null or distance < nearest or (distance == nearest and _precedes(candidate, selected)):
+			selected = candidate
+			nearest = distance
+	return selected
+
+# Equal horizontal distance: authored ID wins; node path is a deterministic
+# fallback for erroneous duplicate IDs, not an identity used by run state.
+func _precedes(candidate: SideInteractable, selected: SideInteractable) -> bool:
+	if candidate.placement_id != selected.placement_id:
+		return String(candidate.placement_id) < String(selected.placement_id)
+	return String(candidate.get_path()) < String(selected.get_path())
+
+func start_travel(destination: String, arrival: StringName) -> bool:
+	if not _interaction_allowed() or not ResourceLoader.exists(destination, "PackedScene"):
+		return false
 	transitioning = true
 	world.process_mode = Node.PROCESS_MODE_DISABLED
 	var walker_hp := walker.vitals.health if is_instance_valid(walker) else _absent_walker_hp
-	get_tree().set_meta(TRANSFER, {"arrival": portal.arrival, "health": player.vitals.health,
+	get_tree().set_meta(TRANSFER, {"arrival": arrival, "health": player.vitals.health,
 		"magazine": weapon.firearm.magazine, "reserve": player.reserve_for(PISTOL.ammo_id), "walker_hp": walker_hp})
+	_finish_travel(destination)
+	return true
+
+func _finish_travel(destination: String) -> void:
 	await hud.fade_to(1.0)
-	if get_tree().change_scene_to_file(portal.destination) != OK:
+	if get_tree().change_scene_to_file(destination) != OK:
 		get_tree().remove_meta(TRANSFER)
 		world.process_mode = Node.PROCESS_MODE_INHERIT
 		transitioning = false
 		hud.failure = true
 		hud.fade_to(0.0)
+
+func restart_after_defeat() -> void:
+	if not defeated or transitioning:
+		return
+	SideRunState.for_tree(get_tree()).reset()
+	get_tree().change_scene_to_file(COURT)
 
 func take_damage(amount: int) -> void:
 	if not transitioning:
