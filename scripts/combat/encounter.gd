@@ -3,19 +3,29 @@ extends Node2D
 @onready var yard: Node2D = $Yard
 @onready var actors: Node2D = $Yard/FloorActors
 @onready var player: CharacterBody2D = $Yard/FloorActors/Player
-@onready var hud: Label = $HUD/Status
+@onready var hud: ProofHUD = $HUD/Instruments
+@onready var weather: ProofWeather = $Yard/Weather
+@onready var audio: ProofAudio = $Audio
 var weapon := DepotWeapon.new()
 var health := 100
 var remaining := 0
 var immunity := 0.0
 var finished := false
-var impact := AudioStreamPlayer.new()
+var rain_enabled := true
+var lamps_enabled := true
 
 func _ready() -> void:
 	Input.set_default_cursor_shape(Input.CURSOR_CROSS)
+	player.get_node("Coat").hide()
+	player.get_node("Head").hide()
+	var survivor := SurvivorArt.new()
+	survivor.weapon = weapon
+	survivor.audio = audio
+	player.add_child(survivor)
+	weapon.audio = audio
 	player.add_child(weapon)
-	add_child(impact)
-	impact.stream = preload("res://assets/audio/growl.wav")
+	actors.get_node("CrateFeet/Crate").hide()
+	actors.get_node("CrateFeet/Rim").hide()
 	var second := actors.get_node("CrateFeet").duplicate() as StaticBody2D
 	second.position = Vector2(900,398)
 	actors.add_child(second)
@@ -40,7 +50,7 @@ func take_damage(amount: int) -> void:
 		return
 	health = maxi(0, health - amount)
 	immunity = 0.7
-	impact.play()
+	audio.hit(player.global_position, true)
 	if health == 0:
 		finish(false)
 
@@ -52,8 +62,7 @@ func enemy_fell() -> void:
 func finish(won: bool) -> void:
 	finished = true
 	update_hud()
-	$HUD/Result.text = ("محوطه امن شد" if won else "سقوط کردی") + "\nشروع دوباره: Enter"
-	$HUD/Result.show()
+	hud.finish(won)
 	# Freeze only the yard. The restart handler stays alive.
 	yard.process_mode = Node.PROCESS_MODE_DISABLED
 	$Yard/Pause.process_mode = Node.PROCESS_MODE_DISABLED
@@ -68,9 +77,23 @@ func _process(delta: float) -> void:
 	update_hud()
 
 func update_hud() -> void:
-	hud.text = "سلامت: %d    |    خشاب: %d    |    ذخیره: %d    |    آلوده: %d" % [health, weapon.magazine, weapon.reserve, remaining]
-	if weapon.reload_left > 0:
-		hud.text += "    •    تعویض خشاب…"
+	hud.update(health, weapon, remaining)
+
+func _unhandled_key_input(event: InputEvent) -> void:
+	var key := event as InputEventKey
+	if key == null or not key.pressed or key.echo:
+		return
+	match key.physical_keycode:
+		KEY_F2:
+			rain_enabled = not rain_enabled
+		KEY_F3:
+			lamps_enabled = not lamps_enabled
+		_:
+			return
+	weather.set_effects(rain_enabled, lamps_enabled)
+	$Yard/Footlights.visible = lamps_enabled
+	hud.set_effects(rain_enabled, lamps_enabled)
+	get_viewport().set_input_as_handled()
 
 func _exit_tree() -> void:
 	Input.set_default_cursor_shape(Input.CURSOR_ARROW)

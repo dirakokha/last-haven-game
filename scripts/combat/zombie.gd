@@ -14,6 +14,7 @@ var heading := Vector2.RIGHT
 var shove := Vector2.ZERO
 var flash := 0.0
 var delivered := false
+var art: WalkerArt
 
 func _ready() -> void:
 	hp = 45 if runner else 65
@@ -23,6 +24,9 @@ func _ready() -> void:
 	circle.radius = 8
 	footprint.shape = circle
 	add_child(footprint)
+	art = WalkerArt.new()
+	art.runner = runner
+	add_child(art)
 
 func hurt(amount: int, push: Vector2) -> void:
 	if hp <= 0:
@@ -31,6 +35,15 @@ func hurt(amount: int, push: Vector2) -> void:
 	flash = 0.14
 	shove = push
 	if hp <= 0:
+		# Inert visual at the original Y-sort pin. The actor still frees this frame.
+		var body := WalkerArt.new()
+		body.corpse = true
+		body.runner = runner
+		body.facing_left = art.facing_left
+		body.position = position
+		# Play the last death even when the winning result disables the yard.
+		body.process_mode = Node.PROCESS_MODE_PAUSABLE
+		get_parent().add_child(body)
 		fell.emit()
 		queue_free()
 
@@ -67,17 +80,18 @@ func _physics_process(delta: float) -> void:
 	velocity += shove
 	shove = shove.move_toward(Vector2.ZERO, 700 * delta)
 	move_and_slide()
+	art.state = state
+	art.state_left = timer
+	art.hit_left = flash
+	art.heading = heading
+	art.moving = get_real_velocity().length_squared() > 1.0
 	queue_redraw()
 
 func _draw() -> void:
-	var tint := Color("a47460") if runner else Color("799586")
-	if flash > 0:
-		tint = Color.WHITE
-	var lean := signf(heading.x) * (5 if runner else 2)
-	draw_rect(Rect2(-7,-7,5,8), Color("283334"))
-	draw_rect(Rect2(2,-7,5,8), Color("283334"))
-	draw_rect(Rect2(-8,-24,16,19), tint.darkened(0.28))
-	draw_rect(Rect2(lean-5,-34,10,11), tint)
-	draw_rect(Rect2(lean-5,-31,10,3), Color("d7b868"))
 	if state == State.WARN:
-		draw_line(Vector2.ZERO, heading * (90 if runner else 28), Color("ff965d"), 2)
+		var distance := 90.0 if runner else 28.0
+		var tangent := heading.orthogonal()
+		var end := heading * distance
+		draw_line(heading * 9.0, end, Color(0.99, 0.57, 0.29, 0.44), 1)
+		draw_polyline(PackedVector2Array([end - heading * 5.0 + tangent * 4.0,
+			end, end - heading * 5.0 - tangent * 4.0]), Color("eeb57d"), 1)
