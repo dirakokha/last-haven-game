@@ -1,0 +1,48 @@
+[gd_scene load_steps=2 format=3]
+
+[ext_resource type="FontFile" path="res://assets/fonts/Vazirmatn-Regular.ttf" id="Font"]
+
+[node name="PersianRTL" type="ColorRect"]
+anchor_right = 1.0
+anchor_bottom = 1.0
+color = Color(0.10,0.15,0.17,1)
+
+[node name="Samples" type="VBoxContainer" parent="."]
+layout_direction = 3
+anchor_right = 1.0
+offset_left = 48.0
+offset_right = -48.0
+offset_top = 52.0
+theme_override_constants/separation = 20
+
+[node name="Heading" type="Label" parent="Samples"]
+theme_override_fonts/font = ExtResource("Font")
+language = "fa"
+theme_override_font_sizes/font_size = 36
+text_direction = 2
+autowrap_mode = 3
+text = "آخرین پناهگاه"
+
+[node name="Paragraph" type="Label" parent="Samples"]
+theme_override_fonts/font = ExtResource("Font")
+language = "fa"
+theme_override_font_sizes/font_size = 24
+text_direction = 2
+autowrap_mode = 3
+text = "باران روی سقف می‌بارد. چراغ کارگاه هنوز روشن است؛ آیا کسی به پناهگاه برگشته است؟"
+
+[node name="Mixed" type="Label" parent="Samples"]
+theme_override_fonts/font = ExtResource("Font")
+language = "fa"
+theme_override_font_sizes/font_size = 24
+text_direction = 2
+autowrap_mode = 3
+text = "گزارش Grayridge: اتاق B-12، ساعت ۱۸:۴۵ (روز ۳)."
+
+[node name="Interaction" type="Label" parent="Samples"]
+theme_override_fonts/font = ExtResource("Font")
+language = "fa"
+theme_override_font_sizes/font_size = 24
+text_direction = 2
+autowrap_mode = 3
+text = "نمونهٔ راهنما: برای بررسی، کلید E را بزنید."
