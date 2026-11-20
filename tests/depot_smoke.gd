@@ -52,7 +52,7 @@ func run() -> void:
 	check(root.content_scale_mode == Window.CONTENT_SCALE_MODE_VIEWPORT, "scale the pixel buffer, not individual items")
 	check(root.content_scale_stretch == Window.CONTENT_SCALE_STRETCH_INTEGER, "integer scale")
 	if DisplayServer.get_name() == "headless":
-		var original_size := root.size
+		var original_size: Vector2i = root.size
 		root.size = Vector2i(960, 540)
 		check(root.get_final_transform().get_scale().is_equal_approx(Vector2.ONE), "native window maps each design pixel once")
 		root.size = Vector2i(1920, 1080)
