@@ -1,0 +1,44 @@
+[gd_scene load_steps=5 format=3]
+
+[ext_resource type="Script" path="res://scripts/combat/encounter.gd" id="Game"]
+[ext_resource type="PackedScene" path="res://scenes/main/Main.tscn" id="Lane"]
+[ext_resource type="Script" path="res://scripts/combat/depot_art.gd" id="Art"]
+[ext_resource type="FontFile" path="res://assets/fonts/Vazirmatn-Regular.ttf" id="Font"]
+
+[node name="Depot" type="Node2D"]
+script = ExtResource("Game")
+
+[node name="Yard" parent="." instance=ExtResource("Lane")]
+
+[node name="Skyline" type="Node2D" parent="Yard" index="0"]
+script = ExtResource("Art")
+
+[node name="HUD" type="CanvasLayer" parent="."]
+
+[node name="Status" type="Label" parent="HUD"]
+offset_left = 15.0
+offset_top = 6.0
+offset_right = 944.0
+horizontal_alignment = 2
+text_direction = 2
+theme_override_fonts/font = ExtResource("Font")
+theme_override_colors/font_outline_color = Color(0.08,0.12,0.13,1)
+theme_override_constants/outline_size = 4
+
+[node name="Help" type="Label" parent="HUD"]
+offset_right = 944.0
+offset_top = 479.0
+horizontal_alignment = 2
+text_direction = 2
+theme_override_fonts/font = ExtResource("Font")
+text = "محوطهٔ بارگیری    /    کلیک: شلیک    •    R: خشاب    •    F: ضربه    •    Esc: توقف"
+
+[node name="Result" type="Label" parent="HUD"]
+visible = false
+offset_right = 960.0
+offset_top = 203.0
+horizontal_alignment = 1
+text_direction = 2
+theme_override_constants/outline_size = 8
+theme_override_font_sizes/font_size = 32
+theme_override_fonts/font = ExtResource("Font")
