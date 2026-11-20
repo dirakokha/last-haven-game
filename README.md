@@ -1,5 +1,7 @@
 # last-haven-game
 
+**Art & audio proof 01 — North Quay:** Open the project with Godot 4.7.2 Stable Standard and press **F5** for the playable rainy Depot. **F2** toggles moving rain, **F3** toggles lamp effects. [Local acceptance checklist](docs/ART_AUDIO_PROOF_01.md) · [Asset sources and licenses](docs/ASSET_LICENSES.md).
+
 **فاز ۲:** پس از Import با Godot 4.7.2 Standard، **F5** محوطهٔ نبرد را باز می‌کند. نشانه را روی تنهٔ دشمن ببرید؛ کلیک چپ شلیک، R تعویض خشاب و F ضربهٔ چوب است. پس از پیروزی یا مرگ Enter برخورد را از نو شروع می‌کند. [راهنمای آزمون ویندوز](docs/PHASE2_CHECKLIST.md)
 
 ## بنیاد فاز ۱ — اجرای محلی روی Windows x64

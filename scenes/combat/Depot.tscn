@@ -1,44 +1,57 @@
-[gd_scene load_steps=5 format=3]
+[gd_scene load_steps=9 format=3]
 
 [ext_resource type="Script" path="res://scripts/combat/encounter.gd" id="Game"]
 [ext_resource type="PackedScene" path="res://scenes/main/Main.tscn" id="Lane"]
-[ext_resource type="Script" path="res://scripts/combat/depot_art.gd" id="Art"]
-[ext_resource type="FontFile" path="res://assets/fonts/Vazirmatn-Regular.ttf" id="Font"]
+[ext_resource type="Texture2D" path="res://assets/art/depot.png" id="YardArt"]
+[ext_resource type="Texture2D" path="res://assets/art/depot_lamps.png" id="Lamps"]
+[ext_resource type="Texture2D" path="res://assets/art/cargo.png" id="Case"]
+[ext_resource type="Script" path="res://scripts/presentation/proof_hud.gd" id="HUD"]
+[ext_resource type="Script" path="res://scripts/presentation/proof_weather.gd" id="Weather"]
+[ext_resource type="Script" path="res://scripts/presentation/proof_audio.gd" id="Audio"]
 
 [node name="Depot" type="Node2D"]
 script = ExtResource("Game")
 
 [node name="Yard" parent="." instance=ExtResource("Lane")]
+script = null
 
-[node name="Skyline" type="Node2D" parent="Yard" index="0"]
-script = ExtResource("Art")
+[node name="Backdrop" type="Sprite2D" parent="Yard" index="0"]
+texture = ExtResource("YardArt")
+centered = false
+
+[node name="Footlights" type="Sprite2D" parent="Yard" index="1"]
+texture = ExtResource("Lamps")
+centered = false
+
+[node name="CargoArt" type="Sprite2D" parent="Yard/FloorActors/CrateFeet" index="3"]
+texture = ExtResource("Case")
+centered = false
+offset = Vector2(-32, -50)
+
+[node name="Weather" type="Node2D" parent="Yard" index="4"]
+z_index = 5
+script = ExtResource("Weather")
+
+[node name="Pause" parent="Yard" index="5"]
+layer = 2
+
+[node name="Caption" parent="Yard/Pause" index="0"]
+offset_left = 359.0
+offset_top = 239.0
+offset_right = 619.0
+offset_bottom = 273.0
+theme_override_colors/font_outline_color = Color(0.063, 0.098, 0.133, 1)
+theme_override_constants/outline_size = 9
+theme_override_font_sizes/font_size = 20
+text = "PAUSED    /    Esc to resume"
+text_direction = 1
+
+[node name="Audio" type="Node2D" parent="."]
+script = ExtResource("Audio")
 
 [node name="HUD" type="CanvasLayer" parent="."]
 
-[node name="Status" type="Label" parent="HUD"]
-offset_left = 15.0
-offset_top = 6.0
-offset_right = 944.0
-horizontal_alignment = 2
-text_direction = 2
-theme_override_fonts/font = ExtResource("Font")
-theme_override_colors/font_outline_color = Color(0.08,0.12,0.13,1)
-theme_override_constants/outline_size = 4
+[node name="Instruments" type="Node2D" parent="HUD"]
+script = ExtResource("HUD")
 
-[node name="Help" type="Label" parent="HUD"]
-offset_right = 944.0
-offset_top = 479.0
-horizontal_alignment = 2
-text_direction = 2
-theme_override_fonts/font = ExtResource("Font")
-text = "محوطهٔ بارگیری    /    کلیک: شلیک    •    R: خشاب    •    F: ضربه    •    Esc: توقف"
-
-[node name="Result" type="Label" parent="HUD"]
-visible = false
-offset_right = 960.0
-offset_top = 203.0
-horizontal_alignment = 1
-text_direction = 2
-theme_override_constants/outline_size = 8
-theme_override_font_sizes/font_size = 32
-theme_override_fonts/font = ExtResource("Font")
+[editable path="Yard"]
